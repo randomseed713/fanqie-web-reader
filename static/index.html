@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>番茄小说</title>
+<link rel="stylesheet" href="/static/css/style.css">
+<link rel="manifest" href="/static/manifest.json">
+<meta name="theme-color" content="#e8722a">
+<script src="https://unpkg.com/lucide@0.525.0"></script>
+</head>
+<body>
+
+<div class="read-progress" id="readProgress"></div>
+<div class="img-viewer-overlay" id="imgViewer" onclick="closeImageViewer()"><img id="imgViewerContent" src="" alt=""></div>
+<div class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})"><i data-lucide="arrow-up" width="18" height="18"></i></div>
+
+<div class="header">
+  <div class="header-top">
+    <button class="back-btn hidden" id="backBtn" onclick="goBack()"><i data-lucide="chevron-left" width="22" height="22"></i></button>
+    <h1 id="pageTitle">番茄小说</h1>
+    <button class="icon-btn" id="themeBtn" onclick="toggleTheme()"><i data-lucide="sun" width="16" height="16"></i></button>
+  </div>
+  <div class="search-bar" id="searchBar">
+    <i data-lucide="search" class="search-icon" width="16" height="16"></i>
+    <input type="text" id="searchInput" placeholder="搜索书名、作者..." onfocus="showSuggest()" onblur="setTimeout(hideSuggest,200)" oninput="onSearchInput()" onkeydown="if(event.key==='Enter') doSearch()">
+    <span class="search-clear" id="searchClear" onclick="clearSearch()"><i data-lucide="x" width="14" height="14"></i></span>
+    <div class="search-suggest" id="searchSuggest"></div>
+  </div>
+  <div class="search-tabs hidden" id="searchTabs"></div>
+</div>
+
+<div class="container" id="app"></div>
+
+<nav class="bottom-nav" id="bottomNav">
+  <a class="bottom-nav-item active" data-route="search" onclick="navigate('search')">
+    <i data-lucide="search" width="22" height="22"></i>
+    <span>发现</span>
+  </a>
+  <a class="bottom-nav-item" data-route="shelf" onclick="navigate('shelf')">
+    <i data-lucide="book-open" width="22" height="22"></i>
+    <span>书架</span>
+  </a>
+</nav>
+
+<script src="/static/js/app.js"></script>
+<script src="/static/js/cache.js"></script>
+<script src="/static/js/views.js"></script>
+<script src="/static/js/reader.js"></script>
+<script src="/static/js/main.js"></script>
+<script>lucide.createIcons();</script>
+</body>
+</html>

@@ -124,7 +124,7 @@ route('reader', async (q, app) => {
   const bid = q.book_id;
   let idx = parseInt(q.chapter_idx || '0');
   $('pageTitle').textContent = '加载中...';
-  if (!cache.detail[bid]) { app.innerHTML = skeletonDetail(); await fetchDetail(bid); }
+  if (!cache.detail[bid]) { app.innerHTML = skeletonReader(); await fetchDetail(bid); }
   const d = cache.detail[bid];
   if (!d || !d.chapters.length) { app.innerHTML = errorHtml('加载失败', `reader?book_id=${bid}&chapter_idx=0`); return; }
   if (idx < 0 || idx >= d.chapters.length) idx = 0;

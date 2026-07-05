@@ -8,7 +8,7 @@ function renderParas(paras, authorSpeak) {
     if (imgMatch) { html += `<img class="content-img" src="${text}">`; continue; }
     const innerImgs = text.match(/<img[^>]+src="([^"]+)"[^>]*>/gi);
     if (innerImgs) { innerImgs.forEach(imgTag => { const src = imgTag.match(/src="([^"]+)"/); if (src) html += `<img class="content-img" src="${src[1]}">`; }); continue; }
-    html += `<div class="para-wrap"><p>${escapeHtml(text)}</p></div>`;
+    html += `<div class="para-wrap" data-para-idx="${pi}"><p>${escapeHtml(text)}<span class="para-badge" data-para-idx="${pi}" onclick="event.stopPropagation();openParaComment(${pi})"></span></p></div>`;
   }
   if (authorSpeak) html += `<div class="author-speak"><i data-lucide="message-circle" width="14" height="14"></i> 作者说：${escapeHtml(authorSpeak)}</div>`;
   return html;
@@ -141,6 +141,7 @@ function renderScrollReader(app, bid, idx) {
   setupScrollAutoNext(bid, idx);
   setupScrollToolbarAutoHide();
   setupScrollSwipe(bid, idx, total);
+  loadParaCommentCounts(chapterId);
   refreshIcons(app);
 }
 
@@ -170,6 +171,7 @@ function setupScrollAutoNext(bid, idx) {
           div.innerHTML = `<div class="auto-next-chapter"><div class="reader-title">${escapeHtml(d.chapters[nextIdx].Name||'第'+(nextIdx+1)+'章')}</div>` + renderParas(nc.paragraphs, nc.authorSpeak) + `<div class="chapter-end">本章已读完</div></div>`;
           content.appendChild(div);
           appendedChapters++;
+          loadParaCommentCounts(nextChapterId);
           const data = loadData();
           data.readingHistory.chapterIdx = nextIdx;
           data.readingHistory.chapterName = d.chapters[nextIdx].Name || `第${nextIdx+1}章`;
@@ -251,13 +253,13 @@ function renderPageReader(app, bid, idx) {
       <span class="chapter-name">${escapeHtml(chapterTitle)}</span>
       <button class="settings-btn" onclick="toggleToolbar()">Aa</button>
     </div>
-    <div class="page-container" id="pageContainer">
+    <div class="page-container" id="pageContainer" onclick="handlePageContainerClick(event)">
       <div class="page-viewport" id="pageViewport"></div>
       <div class="page-shadow-left" id="pageShadowLeft"></div>
       <div class="page-shadow-right" id="pageShadowRight"></div>
-      <div class="tap-zone tap-zone-left" onclick="pagePrev()"></div>
-      <div class="tap-zone tap-zone-center" onclick="toggleToolbar()"></div>
-      <div class="tap-zone tap-zone-right" onclick="pageNext()"></div>
+      <div class="tap-zone tap-zone-left"></div>
+      <div class="tap-zone tap-zone-center"></div>
+      <div class="tap-zone tap-zone-right"></div>
       <div class="page-toolbar-overlay" id="pageToolbar">
         <div class="page-toolbar-top">
           <button class="back-btn" onclick="goBack()"><i data-lucide="chevron-left" width="22" height="22"></i></button>
@@ -325,7 +327,7 @@ function renderPageReader(app, bid, idx) {
   document.documentElement.style.setProperty('--reader-line-height', getLineHeight());
   applyFont();
 
-  requestAnimationFrame(() => { requestAnimationFrame(() => { pgCalculatePages(); }); });
+  requestAnimationFrame(() => { requestAnimationFrame(() => { pgCalculatePages(); loadParaCommentCounts(d.chapters[idx].ChapterID); }); });
   setupPgGestures();
   preloadAdjacent(bid, idx);
   refreshIcons(app);
@@ -354,13 +356,14 @@ function pgCalculatePages() {
   
   // Build paragraph HTML array
   const paraHtmls = [];
-  for (const text of paras) {
+  for (let pi = 0; pi < paras.length; pi++) {
+    const text = paras[pi];
     if (!text) continue;
     const imgMatch = text.match(/^https?:\/\/\S+\.(jpg|jpeg|png|webp|gif)(\?\S*)?$/i);
     if (imgMatch) { paraHtmls.push(`<img class="content-img" src="${text}">`); continue; }
     const innerImgs = text.match(/<img[^>]+src="([^"]+)"[^>]*>/gi);
     if (innerImgs) { innerImgs.forEach(imgTag => { const src = imgTag.match(/src="([^"]+)"/); if (src) paraHtmls.push(`<img class="content-img" src="${src[1]}">`); }); continue; }
-    paraHtmls.push(`<div class="para-wrap"><p>${escapeHtml(text)}</p></div>`);
+    paraHtmls.push(`<div class="para-wrap" data-para-idx="${pi}"><p>${escapeHtml(text)}<span class="para-badge" data-para-idx="${pi}" onclick="event.stopPropagation();openParaComment(${pi})"></span></p></div>`);
   }
   if (authorSpeak) paraHtmls.push(`<div class="author-speak"><i data-lucide="message-circle" width="14" height="14"></i> 作者说：${escapeHtml(authorSpeak)}</div>`);
   
@@ -531,6 +534,31 @@ function pagePrev() {
   if (pg.curPage > 0) pgGoToPage(pg.curPage - 1, true);
   else if (pg.idx > 0) pgSwitchChapter(pg.idx - 1, -1);
 }
+
+// Handle tap-zone clicks: ignore if clicking on para-badge
+function handlePageTap(e, zone) {
+  if (e.target.closest('.para-badge')) return;
+  if (zone === 'prev') pagePrev();
+  else if (zone === 'next') pageNext();
+  else toggleToolbar();
+}
+
+// Handle clicks on page-container: delegate to tap zones, but let badge clicks through
+function handlePageContainerClick(e) {
+  // If badge was clicked, let its own onclick handle it
+  if (e.target.closest('.para-badge')) return;
+  // If toolbar is open, let toolbar handle its own clicks
+  if ($('pageToolbar') && $('pageToolbar').classList.contains('open')) return;
+
+  const container = $('pageContainer');
+  if (!container) return;
+  const rect = container.getBoundingClientRect();
+  const x = (e.clientX - rect.left) / rect.width;
+
+  if (x < 0.28) pagePrev();
+  else if (x > 0.72) pageNext();
+  else toggleToolbar();
+}
 async function pgSwitchChapter(newIdx, startPageHint) {
   if (pg.animating) return;
   const d = cache.detail[pg.bid];
@@ -577,6 +605,7 @@ async function pgSwitchChapter(newIdx, startPageHint) {
 
   // Recalculate pages — this rebuilds viewport children
   pgCalculatePages();
+  loadParaCommentCounts(chapterId);
 
   // Determine target page
   const targetPage = (startPageHint === -1) ? pg.totalPages - 1 : 0;
@@ -827,6 +856,12 @@ function setupPgGestures() {
     const hash = location.hash.slice(1)||'';
     if (!hash.startsWith('reader')) return;
     if (getReadMode() === 'scroll') return;
+    // If paragraph comment panel is open, Escape closes it first
+    const paraPanel = $('paraCommentPanel');
+    if (paraPanel && paraPanel.classList.contains('open')) {
+      if (e.key==='Escape') { closeParaComment(); e.preventDefault(); }
+      return;
+    }
     if (e.key==='ArrowLeft'||e.key==='a') pagePrev();
     else if (e.key==='ArrowRight'||e.key==='d') pageNext();
     else if (e.key==='Escape') goBack();
@@ -858,6 +893,169 @@ window.addEventListener('resize', () => {
   pgResizeTimer = setTimeout(() => {
     pgCalculatePages();
   }, 200);
+});
+
+// ====== Paragraph comments ======
+async function loadParaCommentCounts(chapterId) {
+  const counts = await fetchParagraphCommentCounts(chapterId);
+  // Update badges in both scroll and page readers
+  document.querySelectorAll('.para-wrap').forEach(wrap => {
+    const idx = wrap.dataset.paraIdx;
+    if (idx === undefined) return;
+    const count = counts[idx] || counts[String(idx)] || 0;
+    const badge = wrap.querySelector('.para-badge');
+    if (!badge) return;
+    if (count > 0) {
+      badge.textContent = count;
+      wrap.classList.add('has-comments');
+    } else {
+      wrap.classList.remove('has-comments');
+    }
+  });
+}
+
+function openParaComment(paraIdx) {
+  const chapterId = currentChapterKey || (cache.detail[currentBookId] ? cache.detail[currentBookId].chapters[currentChapterIdx].ChapterID : null);
+  if (!chapterId) return;
+  const c = getContentCache(chapterId);
+  if (!c) return;
+  const text = c.paragraphs[paraIdx] || '';
+
+  // Create or reuse panel
+  let backdrop = $('paraCommentBackdrop');
+  let panel = $('paraCommentPanel');
+  if (!backdrop) {
+    backdrop = document.createElement('div');
+    backdrop.id = 'paraCommentBackdrop';
+    backdrop.className = 'para-comment-backdrop';
+    backdrop.onclick = closeParaComment;
+    document.body.appendChild(backdrop);
+  }
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.id = 'paraCommentPanel';
+    panel.className = 'para-comment-panel';
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.innerHTML = `
+      <div class="panel-drag-handle"></div>
+      <div class="panel-header">
+        <span class="panel-title" id="paraPanelTitle">段评</span>
+        <button class="panel-close" onclick="closeParaComment()" aria-label="关闭"><i data-lucide="x" width="16" height="16"></i></button>
+      </div>
+      <div class="panel-quote"><p id="paraPanelQuote"></p></div>
+      <div class="panel-comments" id="paraPanelComments"><div class="loading" style="padding:20px">加载中...</div></div>
+    `;
+    document.body.appendChild(panel);
+    refreshIcons(panel);
+  }
+
+  // Set quote text
+  $('paraPanelQuote').textContent = text;
+
+  // Show panel
+  backdrop.classList.add('open');
+  panel.classList.remove('closing');
+  panel.classList.add('open');
+
+  // Store current context for comment loading
+  panel.dataset.chapterId = chapterId;
+  panel.dataset.paraIdx = paraIdx;
+
+  // Load comments
+  loadParaCommentList(chapterId, paraIdx, currentBookId);
+}
+
+async function loadParaCommentList(chapterId, paraIdx, bookId) {
+  const container = $('paraPanelComments');
+  if (!container) return;
+  container.innerHTML = '<div class="panel-loading"><div class="panel-loading-spinner"></div><div style="font-size:12px;color:var(--text-muted)">加载中...</div></div>';
+  try {
+    const comments = await fetchParagraphComments(chapterId, paraIdx, bookId);
+    if (!comments || !comments.length) {
+      container.innerHTML = '<div class="panel-empty"><div class="panel-empty-icon">💬</div><div class="panel-empty-text">暂无段评</div></div>';
+      return;
+    }
+    let html = '';
+    for (const c of comments) {
+      const user = c.user_name || c.nick_name || '匿名';
+      const avatar = c.avatar_url || '';
+      const text = c.content || c.text || '';
+      const time = c.create_time || c.create_timestamp || 0;
+      const digg = c.digg_count || 0;
+      const imgs = c.images || [];
+      const reply = c.reply_list || c.reply_comment || c.child_comments || null;
+      const avatarHtml = avatar ? `<img class="comment-avatar" src="${avatar}" alt="" loading="lazy">` : `<div class="comment-avatar comment-avatar-placeholder">${escapeHtml(user.charAt(0))}</div>`;
+      html += `<div class="comment-item">${avatarHtml}<div class="comment-body"><div class="comment-user">${escapeHtml(user)}</div><div class="comment-text">${escapeHtml(text)}</div>`;
+      if (imgs.length > 0) {
+        const imgGridClass = imgs.length === 1 ? 'comment-images single-img' : 'comment-images';
+        html += `<div class="${imgGridClass}">`;
+        for (const src of imgs) html += `<img class="comment-img" src="${src}" alt="评论图片" loading="lazy" onclick="openImageViewer(this.src)">`;
+        html += '</div>';
+      }
+      const timeStr = time ? formatTime(time) : '';
+      const diggStr = digg > 0 ? `<span class="comment-digg">${digg}</span>` : '';
+      if (timeStr || diggStr) {
+        html += `<div class="comment-meta">${timeStr ? `<span>${timeStr}</span>` : ''}${diggStr}</div>`;
+      }
+      if (reply && Array.isArray(reply) && reply.length > 0) {
+        html += '<div class="comment-reply">';
+        for (const rc of reply.slice(0,3)) {
+          const rcAvatar = rc.avatar_url || '';
+          const rcUser = rc.user_name || rc.nick_name || '匿名';
+          const rcAvatarHtml = rcAvatar ? `<img class="comment-avatar comment-avatar-sm" src="${rcAvatar}" alt="" loading="lazy">` : `<div class="comment-avatar comment-avatar-sm comment-avatar-placeholder">?</div>`;
+          html += `<div class="comment-item">${rcAvatarHtml}<div class="comment-body"><div class="comment-user">${escapeHtml(rcUser)}</div><div class="comment-text">${escapeHtml(rc.content||rc.text||'')}</div></div></div>`;
+        }
+        html += '</div>';
+      }
+      html += '</div></div>';
+    }
+    container.innerHTML = html;
+  } catch(e) {
+    container.innerHTML = '<div class="panel-empty"><div class="panel-empty-icon">⚠️</div><div class="panel-empty-text">加载失败，请稍后重试</div></div>';
+  }
+}
+
+function closeParaComment() {
+  const backdrop = $('paraCommentBackdrop');
+  const panel = $('paraCommentPanel');
+  if (!panel || !panel.classList.contains('open')) return;
+  backdrop.classList.remove('open');
+  panel.classList.remove('open');
+  panel.classList.add('closing');
+  panel.addEventListener('animationend', function handler() {
+    panel.classList.remove('closing');
+    panel.removeEventListener('animationend', handler);
+  });
+}
+
+// Long-press on paragraph to open comment panel (mobile support)
+(function() {
+  let longPressTimer = null;
+  let longPressTarget = null;
+  document.addEventListener('touchstart', function(e) {
+    const wrap = e.target.closest('.para-wrap');
+    if (!wrap) return;
+    // Don't trigger on badge click
+    if (e.target.closest('.para-badge')) return;
+    longPressTarget = wrap;
+    longPressTimer = setTimeout(() => {
+      const idx = wrap.dataset.paraIdx;
+      if (idx !== undefined) openParaComment(parseInt(idx));
+      longPressTarget = null;
+    }, 600);
+  }, { passive: true });
+  document.addEventListener('touchmove', function() {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  }, { passive: true });
+  document.addEventListener('touchend', function() {
+    if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+  }, { passive: true });
+})();
+
+// Close panel on Escape key
+document.addEventListener('keydown', function(e) {
+  if (e.key === 'Escape') closeParaComment();
 });
 
 // ====== Image click ======

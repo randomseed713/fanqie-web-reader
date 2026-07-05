@@ -17,7 +17,13 @@
 <body>
 
 <div class="read-progress" id="readProgress"></div>
-<div class="img-viewer-overlay" id="imgViewer" onclick="closeImageViewer()"><img id="imgViewerContent" src="" alt=""></div>
+<div class="img-viewer-overlay" id="imgViewer">
+  <div class="img-viewer-toolbar">
+    <button class="img-viewer-btn" id="imgViewerSave" title="保存图片"><i data-lucide="download" width="20" height="20"></i></button>
+    <button class="img-viewer-btn" id="imgViewerClose" title="关闭"><i data-lucide="x" width="20" height="20"></i></button>
+  </div>
+  <img id="imgViewerContent" src="" alt="" draggable="false">
+</div>
 <div class="back-top" id="backTop" onclick="window.scrollTo({top:0,behavior:'smooth'})"><i data-lucide="arrow-up" width="18" height="18"></i></div>
 
 <div class="header">

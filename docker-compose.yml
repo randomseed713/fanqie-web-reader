@@ -6,6 +6,12 @@ services:
     container_name: fanqie-web-reader
     ports:
       - "127.0.0.1:8199:8199"
+    environment:
+      - PARA_COMMENT_MOCK=false
+      - UNIDBG_API=http://unidbg:8099
+    depends_on:
+      unidbg:
+        condition: service_started
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8199/', timeout=5)"]
@@ -13,3 +19,10 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
+
+  unidbg:
+    image: ghcr.io/mtongle/fqnovel-unidbg:latest
+    container_name: fanqie-unidbg
+    ports:
+      - "127.0.0.1:8099:8099"
+    restart: unless-stopped

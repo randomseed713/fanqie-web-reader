@@ -91,6 +91,64 @@ async function fetchComments(bid) {
   return p;
 }
 
+// ====== Paragraph comment counts cache ======
+const paraCommentCounts = {}; // { chapterId: { idx: count, ... } }
+
+async function fetchParagraphCommentCounts(chapterId) {
+  if (paraCommentCounts[chapterId]) return paraCommentCounts[chapterId];
+  if (inflight['pcc_'+chapterId]) return inflight['pcc_'+chapterId];
+  const p = (async () => {
+    try {
+      const r = await fetch(`${API}/api/paragraph_comment_counts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chapter_id: chapterId }),
+      });
+      const data = await r.json();
+      let counts = {};
+      if (data.code === 200 && data.data) {
+        // data.data is { "0": 5, "3": 2, ... } mapping para_idx to count
+        counts = data.data;
+      }
+      paraCommentCounts[chapterId] = counts;
+      return counts;
+    } catch(e) {
+      paraCommentCounts[chapterId] = {};
+      return {};
+    }
+  })();
+  inflight['pcc_'+chapterId] = p;
+  p.finally(() => delete inflight['pcc_'+chapterId]);
+  return p;
+}
+
+async function fetchParagraphComments(chapterId, paragraphIdx, bookId) {
+  const key = `pc_${chapterId}_${paragraphIdx}`;
+  if (inflight[key]) return inflight[key];
+  const p = (async () => {
+    try {
+      const r = await fetch(`${API}/api/paragraph_comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chapter_id: chapterId,
+          book_id: bookId || '',
+          paragraph_idx: paragraphIdx,
+          count: 20,
+        }),
+      });
+      const data = await r.json();
+      if (data.code === 200 && data.data) {
+        return Array.isArray(data.data) ? data.data : [];
+      }
+      return [];
+    } catch(e) { return []; }
+  })();
+  inflight[key] = p;
+  p.finally(() => delete inflight[key]);
+  return p;
+}
+
 // Smart preload: next 3 chapters + prev 1
 function preloadAdjacent(bid, idx) {
   const ch = cache.detail[bid]; if (!ch) return;

@@ -89,6 +89,7 @@ function saveTabData(d) { S.tabCache[S.tab] = d; }
 // ====== Routes ======
 route('search', (q, app) => {
   $('pageTitle').textContent = '番茄小说';
+  $('searchInput').placeholder = '搜索书名、作者...';
   if (q.q) {
     $('searchInput').value = q.q;
     doSearch();
@@ -102,7 +103,7 @@ route('search', (q, app) => {
   }
 });
 
-route('shelf', (q, app) => { $('pageTitle').textContent = '我的书架'; renderShelf(app); });
+route('shelf', (q, app) => { $('pageTitle').textContent = '我的书架'; $('searchInput').value = ''; $('searchInput').placeholder = '搜索书架...'; updateClearBtn(); _shelfFilter = ''; renderShelf(app); });
 
 route('author', async (q, app) => {
   const authorId = q.author_id || '';
@@ -171,6 +172,8 @@ function applyFilters() {
 }
 
 async function doSearch() {
+  const hash = location.hash.slice(1)||'';
+  if (hash.startsWith('shelf')) { _shelfFilter = $('searchInput').value.trim(); renderShelf($('app')); return; }
   const key = $('searchInput').value.trim();
   if (!key) return;
   // Update URL so back button logic detects search results state
@@ -220,6 +223,8 @@ async function loadMore() {
 
 // ====== Search suggest + clear ======
 function showSuggest() {
+  const hash = location.hash.slice(1)||'';
+  if (hash.startsWith('shelf')) return;
   const data = loadData();
   const el = $('searchSuggest');
   el.innerHTML = data.searchHistory.length === 0
@@ -244,8 +249,8 @@ function filterSuggest(q) {
 function quickSearch(key) { $('searchInput').value = key; doSearch(); }
 function delHistory(key) { const data = loadData(); data.searchHistory = data.searchHistory.filter(s => s !== key); saveSearchHistory(data.searchHistory); showSuggest(); }
 
-function onSearchInput() { updateClearBtn(); filterSuggest($('searchInput').value); }
-function clearSearch() { $('searchInput').value = ''; updateClearBtn(); $('searchInput').focus(); showSuggest(); }
+function onSearchInput() { updateClearBtn(); const hash = location.hash.slice(1)||''; if (hash.startsWith('shelf')) { _shelfFilter = $('searchInput').value.trim(); renderShelf($('app')); } else { filterSuggest($('searchInput').value); } }
+function clearSearch() { $('searchInput').value = ''; updateClearBtn(); const hash = location.hash.slice(1)||''; if (hash.startsWith('shelf')) { _shelfFilter = ''; renderShelf($('app')); $('searchInput').focus(); } else { $('searchInput').focus(); showSuggest(); } }
 function updateClearBtn() { $('searchClear').classList.toggle('visible', $('searchInput').value.length > 0); }
 
 // ====== Global event listeners ======

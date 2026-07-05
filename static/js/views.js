@@ -88,14 +88,20 @@ function renderResults(app) {
 }
 
 // ====== Render: Shelf ======
-function renderShelf(app) {
+let _shelfFilter = '';
+function renderShelf(app, filter) {
+  if (filter !== undefined) _shelfFilter = filter;
   const data = loadData();
   const rh = data.readingHistory;
-  let html = `<div class="home-section view"><div class="section-title">我的书架 (${data.shelf.length})</div>`;
+  const shelf = _shelfFilter
+    ? data.shelf.filter(b => (b.name||'').toLowerCase().includes(_shelfFilter.toLowerCase()) || (b.author||'').toLowerCase().includes(_shelfFilter.toLowerCase()))
+    : data.shelf;
+  let html = `<div class="home-section view"><div class="section-title">我的书架 (${shelf.length})</div>`;
   if (!data.shelf.length) html += '<div class="shelf-empty"><div class="icon"><i data-lucide="book-open" width="48" height="48"></i></div><div>还没有收藏的书籍<br><span style="font-size:12px">在书籍详情页点击收藏即可加入书架</span></div><button class="shelf-empty-cta" onclick="navigate(\'search\')">去书城逛逛</button></div>';
+  else if (!shelf.length) html += '<div class="shelf-empty"><div class="icon"><i data-lucide="search" width="32" height="32"></i></div><div>书架中没有匹配的书籍</div></div>';
   else {
     html += '<div class="shelf-grid">';
-    for (const b of data.shelf) {
+    for (const b of shelf) {
       const sp = rh && rh.bookId === b.bookId && rh.totalChapters > 0
         ? Math.round((rh.chapterIdx+1)/rh.totalChapters*100) : 0;
       html += `<div class="shelf-grid-item" onclick="navigate('detail?book_id=${b.bookId}')"><img src="${b.thumb||FALLBACK_IMG}" loading="lazy" onerror="this.src='${FALLBACK_IMG}'"><div class="name">${escapeHtml(b.name||'')}</div>${sp?`<div class="progress-text">读到第${rh.chapterIdx+1}章 · ${sp}%</div>`:''}<div class="del-btn" onclick="event.stopPropagation();removeShelf('${b.bookId}')"><i data-lucide="x" width="10" height="10"></i></div></div>`;

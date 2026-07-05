@@ -5,7 +5,7 @@ services:
       dockerfile: Dockerfile
     container_name: fanqie-web-reader
     ports:
-      - "8199:8199"
+      - "127.0.0.1:8199:8199"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8199/', timeout=5)"]

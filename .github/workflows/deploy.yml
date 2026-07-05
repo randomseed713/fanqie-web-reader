@@ -46,6 +46,20 @@ jobs:
             
             mkdir -p "$UNIDBG_DIR"
             
+            # Ensure swap exists (unidbg needs native memory for ARM emulation)
+            if ! swapon --show | grep -q /swapfile; then
+              if [ ! -f /swapfile ]; then
+                echo "Creating 1GB swap file..."
+                fallocate -l 1G /swapfile 2>/dev/null || dd if=/dev/zero of=/swapfile bs=1M count=1024
+                chmod 600 /swapfile
+                mkswap /swapfile
+              fi
+              swapon /swapfile
+              echo "Swap enabled"
+            fi
+            echo "--- Memory status ---"
+            free -h
+            
             # Install JRE + required libs if not present
             if ! command -v java &>/dev/null; then
               echo "Installing default JRE (Debian 12)..."
@@ -76,8 +90,14 @@ jobs:
             fi
             
             # Start unidbg in background with memory limits
+            # -Xmx256m heap, -XX:MaxDirectMemorySize=128m for native buffers, single worker thread to save RAM
             echo "Starting unidbg..."
-            nohup "$JAVA_BIN" -Xms64m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -jar "$UNIDBG_JAR" > "$UNIDBG_DIR/unidbg.log" 2>&1 &
+            nohup "$JAVA_BIN" \
+              -Xms64m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=128m \
+              -XX:+UseSerialGC -XX:ActiveProcessorCount=1 \
+              -Dapplication.unidbg.async=false \
+              -Dfq.api.device-pool.size=1 \
+              -jar "$UNIDBG_JAR" > "$UNIDBG_DIR/unidbg.log" 2>&1 &
             UNIDBG_PID=$!
             echo $UNIDBG_PID > "$PID_FILE"
             echo "unidbg PID: $UNIDBG_PID (saved to $PID_FILE)"

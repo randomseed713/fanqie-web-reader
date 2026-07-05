@@ -896,8 +896,9 @@ window.addEventListener('resize', () => {
 });
 
 // ====== Paragraph comments ======
-async function loadParaCommentCounts(chapterId) {
-  const counts = await fetchParagraphCommentCounts(chapterId);
+async function loadParaCommentCounts(chapterId, bookId) {
+  const bid = bookId || currentBookId;
+  const counts = await fetchParagraphCommentCounts(chapterId, bid);
   // Update badges in both scroll and page readers
   document.querySelectorAll('.para-wrap').forEach(wrap => {
     const idx = wrap.dataset.paraIdx;

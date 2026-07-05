@@ -94,15 +94,18 @@ async function fetchComments(bid) {
 // ====== Paragraph comment counts cache ======
 const paraCommentCounts = {}; // { chapterId: { idx: count, ... } }
 
-async function fetchParagraphCommentCounts(chapterId) {
-  if (paraCommentCounts[chapterId]) return paraCommentCounts[chapterId];
-  if (inflight['pcc_'+chapterId]) return inflight['pcc_'+chapterId];
+async function fetchParagraphCommentCounts(chapterId, bookId) {
+  const key = chapterId;
+  if (paraCommentCounts[key]) return paraCommentCounts[key];
+  if (inflight['pcc_'+key]) return inflight['pcc_'+key];
   const p = (async () => {
     try {
+      const body = { chapter_id: chapterId };
+      if (bookId) body.book_id = bookId;
       const r = await fetch(`${API}/api/paragraph_comment_counts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chapter_id: chapterId }),
+        body: JSON.stringify(body),
       });
       const data = await r.json();
       let counts = {};

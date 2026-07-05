@@ -584,6 +584,22 @@ def _mock_para_comments(chapter_id: str, paragraph_idx: int) -> list:
     return result
 
 
+def _fix_img_url(url: str) -> str:
+    """Convert ByteDance HEIC avatar URLs to browser-friendly JPEG.
+
+    Fanqie/unidbg returns avatar URLs ending in .heic (Apple format, unsupported
+    by most browsers). The CDN supports format negotiation via the tplv template
+    but the safest client-side fix is to rewrite `.heic` → `.jpeg`, which the CDN
+    honors for the same image resource.
+    """
+    if not url:
+        return url
+    # Rewrite *.heic -> *.jpeg (handles both ~tplv-...heic and plain .heic)
+    if ".heic" in url.lower():
+        url = url.replace(".heic", ".jpeg").replace(".HEIC", ".jpeg")
+    return url
+
+
 def _normalize_comments(raw) -> list:
     """Normalize comment data from various API response formats."""
     # Collect candidate locations for the reviews list
@@ -692,7 +708,7 @@ def _normalize_comments(raw) -> list:
 
         comment = {
             "user_name": user_name,
-            "avatar_url": avatar_url,
+            "avatar_url": _fix_img_url(avatar_url),
             "content": text,
             "create_time": ts,
             "digg_count": digg_count,
@@ -700,6 +716,11 @@ def _normalize_comments(raw) -> list:
 
         # Handle images (image_list may be dict of {id: {url: ...}})
         images = item.get("image_list") or item.get("pic_list") or item.get("images") or []
+        # Also check comment.common.content.image_data_list
+        if not images and isinstance(common.get("content"), dict):
+            img_data = common["content"].get("image_data_list") or {}
+            if isinstance(img_data, dict) and img_data:
+                images = list(img_data.values())
         if isinstance(images, dict):
             images = list(images.values())
         if isinstance(images, str):
@@ -708,16 +729,18 @@ def _normalize_comments(raw) -> list:
             img_urls = []
             for img in images:
                 if isinstance(img, str) and img:
-                    img_urls.append(img)
+                    img_urls.append(_fix_img_url(img))
                 elif isinstance(img, dict):
                     url = img.get("url") or img.get("origin_url") or img.get("thumb_url") or img.get("web_url") or ""
                     if url:
-                        img_urls.append(url)
+                        img_urls.append(_fix_img_url(url))
             if img_urls:
                 comment["images"] = img_urls
 
-        # Handle replies (reply_list or sub_comments)
+        # Handle replies (reply_list or sub_comments; also may live under comment.common)
         replies = item.get("reply_list") or item.get("replies") or item.get("sub_comments") or []
+        if not replies and isinstance(common.get("reply_list"), (list, dict)):
+            replies = common["reply_list"]
         if isinstance(replies, dict):
             replies = list(replies.values())
         if replies and isinstance(replies, list):
@@ -725,37 +748,43 @@ def _normalize_comments(raw) -> list:
             for rc in replies[:5]:
                 if not isinstance(rc, dict):
                     continue
-                rc_user = rc.get("user_name") or rc.get("nick_name") or ""
+                # Walk nested reply structure same as top-level
+                rc_cmt = rc.get("comment") or rc.get("comment_info") or rc
+                rc_common = rc_cmt.get("common", {}) if isinstance(rc_cmt, dict) else {}
+                rc_user = ""
                 rc_avatar = ""
-                if not rc_user and isinstance(rc.get("user"), dict):
-                    rc_user = rc["user"].get("name") or rc["user"].get("nick_name") or ""
-                    rc_avatar = rc["user"].get("avatar_url") or rc["user"].get("avatar") or ""
-                if not rc_user and isinstance(rc.get("comment_info"), dict):
-                    ci = rc["comment_info"]
-                    if isinstance(ci.get("user"), dict):
-                        rc_user = ci["user"].get("name") or ""
-                        rc_avatar = ci["user"].get("avatar_url") or ""
+                def _ru(d):
+                    nonlocal rc_user, rc_avatar
+                    if not isinstance(d, dict): return
+                    if not rc_user:
+                        rc_user = d.get("user_name") or d.get("name") or d.get("nick_name") or ""
+                    if not rc_avatar:
+                        rc_avatar = d.get("user_avatar") or d.get("avatar_url") or d.get("avatar") or ""
+                _ru(rc.get("user"))
+                _ru(rc_common.get("user_info"))
+                _ru(rc_common.get("user_info", {}).get("base_info"))
                 if not rc_user:
-                    rc_user = "匿名"
-                if not rc_avatar:
-                    rc_avatar = rc.get("avatar_url") or rc.get("avatar") or ""
+                    rc_user = rc.get("user_name") or rc.get("nick_name") or "匿名"
                 rc_text = ""
-                rc_common = rc.get("common") or {}
-                if isinstance(rc_common, dict):
-                    rc_content = rc_common.get("content") or {}
-                    if isinstance(rc_content, dict):
-                        rc_text = rc_content.get("text") or ""
+                rc_content = rc_common.get("content") or {}
+                if isinstance(rc_content, dict):
+                    rc_text = rc_content.get("text") or ""
                 if not rc_text:
                     rc_text = rc.get("text") or rc.get("content") or ""
-                rc_ts = rc.get("created_ts") or rc.get("create_timestamp") or rc.get("create_time") or 0
+                rc_ts = 0
+                for rts in [rc_common.get("create_timestamp"), rc.get("create_timestamp"), rc.get("create_time"), rc.get("created_ts")]:
+                    if isinstance(rts, (int, float)) and rts > 0:
+                        rc_ts = rts
+                        break
                 if isinstance(rc_ts, (int, float)) and rc_ts > 1_000_000_000_000:
                     rc_ts = rc_ts // 1000
+                rc_digg = rc_common.get("digg_count") or rc.get("digg_count") or rc.get("like_count") or 0
                 comment["reply_list"].append({
                     "user_name": rc_user,
-                    "avatar_url": rc_avatar,
+                    "avatar_url": _fix_img_url(rc_avatar),
                     "content": rc_text,
                     "create_time": rc_ts,
-                    "digg_count": rc.get("digg_count") or rc.get("like_count") or 0,
+                    "digg_count": rc_digg,
                 })
 
         result.append(comment)

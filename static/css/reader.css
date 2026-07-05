@@ -235,3 +235,16 @@
   background: var(--accent); cursor: pointer;
 }
 .page-toolbar-bottom .slider-row .slider-label { font-size: 13px; color: var(--text-muted); white-space: nowrap; min-width: 50px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* ==================== Simulation 3D Flip ==================== */
+.page-container.sim-flip { perspective: 1500px; }
+.page-page.sim-flipping {
+  backface-visibility: hidden;
+  transform-origin: left center;
+  will-change: transform;
+}
+.page-page.sim-flipping-reverse { transform-origin: right center; }
+.page-page.sim-flip-shadow {
+  box-shadow: 20px 0 40px rgba(0,0,0,0.2);
+  transition: box-shadow 0.2s ease;
+}

@@ -498,20 +498,35 @@ function pgGoToPage(target, animate) {
     newPage.offsetHeight;
     
     if (mode === 'simulation') {
-      newPage.style.transition = 'transform 0.35s var(--ease-out)';
-      newPage.style.transform = 'translateX(0)';
-      oldPage.style.transition = 'transform 0.35s var(--ease-out), box-shadow 0.3s ease';
-      oldPage.style.transform = `translateX(${-dir * 100}%)`;
-      oldPage.style.boxShadow = dir === 1 ? '16px 0 32px -8px rgba(0,0,0,0.25)' : '-16px 0 32px -8px rgba(0,0,0,0.25)';
+      viewport.classList.add('sim-flip');
+      const origin = dir === 1 ? 'left center' : 'right center';
+      const angle = -dir * 180;
+      newPage.style.display = '';
+      newPage.style.transform = '';
+      newPage.style.zIndex = '1';
+      newPage.style.transition = 'none';
+      newPage.offsetHeight;
+      oldPage.style.zIndex = '2';
+      oldPage.style.transformOrigin = origin;
+      oldPage.style.transform = 'perspective(1500px) rotateY(0deg)';
+      oldPage.style.transition = 'none';
+      oldPage.offsetHeight;
+      oldPage.style.transition = 'transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)';
+      oldPage.style.transform = `perspective(1500px) rotateY(${angle}deg)`;
+      oldPage.classList.add('sim-flipping');
+      if (dir === -1) oldPage.classList.add('sim-flipping-reverse');
       setTimeout(() => {
         oldPage.style.display = 'none';
         oldPage.style.transform = '';
         oldPage.style.transition = '';
-        oldPage.style.boxShadow = '';
+        oldPage.style.zIndex = '';
+        oldPage.classList.remove('sim-flipping', 'sim-flipping-reverse');
         newPage.style.transform = '';
         newPage.style.transition = '';
+        newPage.style.zIndex = '';
+        viewport.classList.remove('sim-flip');
         pg.animating = false;
-      }, 370);
+      }, 420);
     } else {
       newPage.style.transition = 'transform 0.3s ease';
       oldPage.style.transition = 'transform 0.3s ease';
@@ -619,18 +634,31 @@ async function pgSwitchChapter(newIdx, startPageHint) {
       oldPageEl.offsetHeight; // force reflow
 
       if (mode === 'simulation') {
-        newPageEl.style.transition = 'transform 0.35s var(--ease-out)';
-        newPageEl.style.transform = 'translateX(0)';
-        oldPageEl.style.transition = 'transform 0.35s var(--ease-out), box-shadow 0.3s ease';
-        oldPageEl.style.transform = `translateX(${-dir * 100}%)`;
-        oldPageEl.style.boxShadow = dir === 1 ? '16px 0 32px -8px rgba(0,0,0,0.25)' : '-16px 0 32px -8px rgba(0,0,0,0.25)';
+        viewport.classList.add('sim-flip');
+        const origin = dir === 1 ? 'left center' : 'right center';
+        const angle = -dir * 180;
+        newPageEl.style.display = '';
+        newPageEl.style.transform = '';
+        newPageEl.style.zIndex = '1';
+        newPageEl.style.transition = 'none';
+        newPageEl.offsetHeight;
+        oldPageEl.style.zIndex = '2';
+        oldPageEl.style.transformOrigin = origin;
+        oldPageEl.style.transform = 'perspective(1500px) rotateY(0deg)';
+        oldPageEl.style.transition = 'none';
+        oldPageEl.offsetHeight;
+        oldPageEl.style.transition = 'transform 0.4s cubic-bezier(0.25,0.46,0.45,0.94)';
+        oldPageEl.style.transform = `perspective(1500px) rotateY(${angle}deg)`;
+        oldPageEl.classList.add('sim-flipping');
+        if (dir === -1) oldPageEl.classList.add('sim-flipping-reverse');
         setTimeout(() => {
           oldPageEl.remove();
           newPageEl.style.transform = '';
           newPageEl.style.transition = '';
-          newPageEl.style.boxShadow = '';
+          newPageEl.style.zIndex = '';
+          viewport.classList.remove('sim-flip');
           pg.animating = false;
-        }, 370);
+        }, 420);
       } else {
         newPageEl.style.transition = 'transform 0.3s ease';
         oldPageEl.style.transition = 'transform 0.3s ease';
@@ -735,15 +763,37 @@ function setupPgGestures() {
       pg.swipeActive = true;
       const viewport = $('pageViewport');
       dragCurrentPage = viewport ? viewport.querySelector(`.page-page[data-page="${pg.curPage}"]`) : null;
-      // Show adjacent pages so they're visible behind the current one during drag
-      if (getReadMode() !== 'no-anim' && viewport && dragCurrentPage) {
+      if (getReadMode() === 'simulation') {
+        if (viewport) viewport.classList.add('sim-flip');
+      } else if (getReadMode() !== 'no-anim' && viewport && dragCurrentPage) {
         const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
         const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
         if (prev) { prev.style.display = ''; prev.style.transform = 'translateX(-100%)'; }
         if (next) { next.style.display = ''; next.style.transform = 'translateX(100%)'; }
       }
     }
-    if (getReadMode() !== 'no-anim' && pg.swipeActive && dragCurrentPage) {
+    const mode = getReadMode();
+    if (mode === 'simulation' && pg.swipeActive && dragCurrentPage) {
+      const cw = container.clientWidth;
+      const isNext = dx < 0;
+      const progress = isNext ? Math.max(-1, Math.min(0, dx / cw)) : Math.max(0, Math.min(1, dx / cw));
+      const angle = progress * 170;
+      dragCurrentPage.style.transition = 'none';
+      dragCurrentPage.style.transformOrigin = isNext ? 'left center' : 'right center';
+      dragCurrentPage.style.transform = `perspective(1500px) rotateY(${angle}deg)`;
+      dragCurrentPage.style.zIndex = '2';
+      dragCurrentPage.classList.add('sim-flipping');
+      if (!isNext) dragCurrentPage.classList.add('sim-flipping-reverse');
+      else dragCurrentPage.classList.remove('sim-flipping-reverse');
+      const adjPage = $('pageViewport')?.querySelector(`.page-page[data-page="${pg.curPage + (isNext ? 1 : -1)}"]`);
+      if (adjPage) {
+        adjPage.style.display = '';
+        adjPage.style.transition = 'none';
+        adjPage.style.transform = '';
+        adjPage.style.zIndex = '1';
+        adjPage.style.boxShadow = `${Math.abs(progress) * 20}px 0 30px rgba(0,0,0,0.2)`;
+      }
+    } else if (mode !== 'no-anim' && pg.swipeActive && dragCurrentPage) {
       dragCurrentPage.style.transition = 'none';
       dragCurrentPage.style.transform = `translateX(${dx}px)`;
       const cw = container.clientWidth;
@@ -784,16 +834,31 @@ function setupPgGestures() {
         dragCurrentPage = null;
         return;
       }
+      if (mode === 'simulation' && dragCurrentPage) {
+        pg.animating = true;
+        const isNext = dx < 0;
+        const origin = isNext ? 'left center' : 'right center';
+        const adjIdx = pg.curPage + (isNext ? 1 : -1);
+        dragCurrentPage.style.transition = 'transform 0.3s cubic-bezier(0.25,0.46,0.45,0.94)';
+        dragCurrentPage.style.transformOrigin = origin;
+        dragCurrentPage.style.transform = `perspective(1500px) rotateY(${-dir * 180}deg)`;
+        if (!isNext) dragCurrentPage.classList.add('sim-flipping-reverse');
+        const adjPage = viewport?.querySelector(`.page-page[data-page="${adjIdx}"]`);
+        if (adjPage) { adjPage.style.boxShadow = '20px 0 40px rgba(0,0,0,0.2)'; }
+        setTimeout(() => {
+          if (dragCurrentPage && dragCurrentPage.parentNode) { dragCurrentPage.style.display = 'none'; dragCurrentPage.style.transform = ''; dragCurrentPage.style.transition = ''; dragCurrentPage.style.zIndex = ''; dragCurrentPage.classList.remove('sim-flipping', 'sim-flipping-reverse'); }
+          if (adjPage) { adjPage.style.boxShadow = ''; adjPage.style.zIndex = ''; }
+          if (viewport) viewport.classList.remove('sim-flip');
+          pg.animating = false;
+        }, 320);
+        pg.curPage = target;
+        pgUpdateUI();
+        dragCurrentPage = null;
+        return;
+      }
       // Animate current page and target page to their final positions from drag position
       pg.animating = true;
       const targetEl = viewport ? viewport.querySelector(`.page-page[data-page="${target}"]`) : null;
-      if (mode === 'simulation') {
-        if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.35s var(--ease-out), box-shadow 0.3s ease'; dragCurrentPage.style.transform = `translateX(${-dir * 100}%)`; dragCurrentPage.style.boxShadow = dir === 1 ? '16px 0 32px -8px rgba(0,0,0,0.25)' : '-16px 0 32px -8px rgba(0,0,0,0.25)'; }
-        if (targetEl) { targetEl.style.transition = 'transform 0.35s var(--ease-out)'; targetEl.style.transform = 'translateX(0)'; }
-      } else {
-        if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.3s ease'; dragCurrentPage.style.transform = `translateX(${-dir * 100}%)`; }
-        if (targetEl) { targetEl.style.transition = 'transform 0.3s ease'; targetEl.style.transform = 'translateX(0)'; }
-      }
       // Hide the other adjacent page
       const otherDir = -dir;
       const otherIdx = pg.curPage + otherDir;
@@ -819,16 +884,26 @@ function setupPgGestures() {
         dragCurrentPage = null;
         return;
       }
-      // Cancelled drag — animate everything back
-      const dur = mode === 'simulation' ? 0.35 : 0.3;
-      const timeout = mode === 'simulation' ? 370 : 300;
-      if (dragCurrentPage) { dragCurrentPage.style.transition = `transform ${dur}s ease, box-shadow ${dur}s ease`; dragCurrentPage.style.transform = 'translateX(0)'; dragCurrentPage.style.boxShadow = ''; }
-      if (viewport) {
-        const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
-        const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
-        if (prev) { prev.style.transition = `transform ${dur}s ease`; prev.style.transform = 'translateX(-100%)'; setTimeout(() => { prev.style.display = 'none'; prev.style.transition = ''; prev.style.transform = ''; }, timeout); }
-        if (next) { next.style.transition = `transform ${dur}s ease`; next.style.transform = 'translateX(100%)'; setTimeout(() => { next.style.display = 'none'; next.style.transition = ''; next.style.transform = ''; }, timeout); }
+      if (mode === 'simulation' && dragCurrentPage) {
+        const isNext = dx < 0;
+        const origin = isNext ? 'left center' : 'right center';
+        const adjIdx = pg.curPage + (isNext ? 1 : -1);
+        dragCurrentPage.style.transition = 'transform 0.25s cubic-bezier(0.25,0.46,0.45,0.94)';
+        dragCurrentPage.style.transformOrigin = origin;
+        dragCurrentPage.style.transform = 'perspective(1500px) rotateY(0deg)';
+        dragCurrentPage.classList.remove('sim-flipping', 'sim-flipping-reverse');
+        setTimeout(() => {
+          dragCurrentPage.style.transform = '';
+          dragCurrentPage.style.transition = '';
+          dragCurrentPage.style.zIndex = '';
+          const ap = $('pageViewport')?.querySelector(`.page-page[data-page="${adjIdx}"]`);
+          if (ap) { ap.style.display = 'none'; ap.style.boxShadow = ''; ap.style.zIndex = ''; }
+          if (viewport) viewport.classList.remove('sim-flip');
+        }, 260);
+        dragCurrentPage = null;
+        return;
       }
+      // Cancelled drag — animate everything back
     }
     dragCurrentPage = null;
   }, { passive: true });

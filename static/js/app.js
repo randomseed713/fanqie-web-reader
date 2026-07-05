@@ -75,6 +75,14 @@ function initTheme() {
   if (saved === 'auto') applyTheme('auto');
   else applyTheme(saved);
 }
+// Last click position for circular reveal animation
+let _themeClickX = 0, _themeClickY = 0;
+function applyThemeFrom(e, themeId) {
+  _themeClickX = e.clientX;
+  _themeClickY = e.clientY;
+  applyTheme(themeId);
+}
+
 function applyTheme(themeId) {
   const doApply = () => {
     document.body.classList.remove('theme-default', 'theme-sepia', 'theme-green', 'theme-dark');
@@ -99,8 +107,16 @@ function applyTheme(themeId) {
       s.classList.toggle('active', s.classList.contains('swatch-' + appliedId));
     });
   };
-  // Use View Transitions API for smooth theme switch animation
+  // Circular reveal transition from click position
   if (document.startViewTransition) {
+    const x = _themeClickX, y = _themeClickY;
+    const endRadius = Math.hypot(
+      Math.max(x, innerWidth - x),
+      Math.max(y, innerHeight - y)
+    );
+    document.documentElement.style.setProperty('--reveal-x', x + 'px');
+    document.documentElement.style.setProperty('--reveal-y', y + 'px');
+    document.documentElement.style.setProperty('--reveal-r', endRadius + 'px');
     document.startViewTransition(doApply);
   } else {
     doApply();

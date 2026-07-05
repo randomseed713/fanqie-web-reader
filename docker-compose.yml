@@ -18,9 +18,9 @@ services:
       start_period: 5s
 
   unidbg:
-    image: ghcr.io/mtongle/fqnovel-unidbg:latest
+    image: gxmandppx/unidbg-fq:latest
     container_name: fanqie-unidbg
     profiles: ["unidbg"]
     ports:
-      - "127.0.0.1:8099:8099"
+      - "127.0.0.1:8099:9999"
     restart: unless-stopped

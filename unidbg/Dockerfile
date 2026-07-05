@@ -1,35 +1,24 @@
-# Multi-stage build for fqnovel-unidbg (mtongle/fqnovel-unidbg)
-# Stage 1: Build with Maven (memory-limited for small VPS)
-FROM maven:3.8-openjdk-11-slim AS builder
-
-WORKDIR /build
-
-# Create JVM config to limit memory
-RUN mkdir -p .mvn && echo '-Xms64m -Xmx256m -XX:MaxMetaspaceSize=96m' > .mvn/jvm.config
-
-# Clone first (cached layer), then build
-RUN apt-get update && apt-get install -y --no-install-recommends git && \
-    rm -rf /var/lib/apt/lists/* && \
-    git clone --depth 1 https://github.com/mtongle/fqnovel-unidbg.git . && \
-    mvn package -DskipTests -T 1 -Dmaven.javadoc.skip=true -B -q && \
-    ls -la target/*.jar
-
-# Stage 2: Runtime (minimal JRE)
+# fqnovel-unidbg runtime image (mtongle/fqnovel-unidbg v0.0.4)
+# Uses pre-built JAR from GitHub Releases (no Maven build needed, works on 1C1G VPS)
 FROM openjdk:11-jre-slim
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
+# Install curl for healthcheck + wget for downloading JAR
+RUN apt-get update && apt-get install -y --no-install-recommends curl wget && \
     rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /build/target/unidbg-boot-server-*.jar /app/app.jar
+# Download pre-built JAR from GitHub Releases (v0.0.4, 352MB)
+ARG JAR_URL=https://github.com/mtongle/fqnovel-unidbg/releases/download/v0.0.4/unidbg-boot-server-0.0.4.jar
+RUN wget -q -O /app/app.jar "$JAR_URL" && \
+    ls -la /app/app.jar
 
 EXPOSE 8099
 
-# Runtime: 128-256MB heap is enough for unidbg
-ENV JAVA_OPTS="-Xms64m -Xmx192m -XX:MaxMetaspaceSize=96m -XX:+UseSerialGC"
+# Memory-limited JVM for 1C1G VPS
+ENV JAVA_OPTS="-Xms64m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC"
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -sf http://localhost:8099/actuator/health || curl -sf http://localhost:8099/api/fq-signature/test || exit 1
 
 ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar /app/app.jar"]

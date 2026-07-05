@@ -357,18 +357,20 @@ function pgCalculatePages() {
   }
   if (authorSpeak) paraHtmls.push(`<div class="author-speak"><i data-lucide="message-circle" width="14" height="14"></i> 作者说：${escapeHtml(authorSpeak)}</div>`);
   
-  // Create a measuring container that inherits reader font/theme styles
-  // Don't use .page-page class — it has inset:0 which forces height
-  // Instead manually replicate the content styling
-  const isMobile = cw <= 420;
-  const padV = isMobile ? '16px' : '24px';
-  const padH = isMobile ? '18px' : '28px';
+  // Use a real .page-page element as measurer to guarantee layout consistency.
+  // This avoids any mismatch between manual style replication and actual CSS.
   const measurer = document.createElement('div');
-  measurer.style.cssText = `position:fixed;visibility:hidden;left:-9999px;top:0;width:${cw}px;padding:${padV} ${padH};box-sizing:border-box;font-size:var(--reader-font-size,17px);line-height:var(--reader-line-height,1.85);font-family:var(--reader-font-family,inherit);letter-spacing:0.02em;color:var(--reader-text);`;
+  measurer.className = 'page-page';
+  measurer.style.cssText = 'position:fixed;visibility:hidden;left:-9999px;top:0;width:' + cw + 'px;height:' + ch + 'px;inset:auto;overflow:hidden;';
   // Attach inside the reader so CSS variables are available
   const reader = $('paginatedReader');
   if (reader) reader.appendChild(measurer);
   else document.body.appendChild(measurer);
+  
+  // Available content height: with border-box, clientHeight includes padding,
+  // so contentH = height - padding-top - padding-bottom.
+  // scrollHeight > contentH means content overflows the visible area.
+  const contentH = measurer.clientHeight;
   
   // Split paragraphs into pages
   const pages = [];
@@ -376,9 +378,10 @@ function pgCalculatePages() {
   
   for (const ph of paraHtmls) {
     measurer.innerHTML = currentPage + ph;
-    if (measurer.offsetHeight > ch && currentPage !== '') {
+    if (measurer.scrollHeight > contentH && currentPage !== '') {
       pages.push(currentPage);
       currentPage = ph;
+      measurer.innerHTML = ph;
     } else {
       currentPage += ph;
     }
@@ -485,9 +488,7 @@ function pgSliderGo(val) { pgGoToPage(parseInt(val) - 1, false); }
 // ====== Toolbar ======
 function toggleToolbar() {
   const tb = $('pageToolbar');
-  const ph = $('pageHeader');
   if (tb) tb.classList.toggle('open');
-  if (ph) ph.style.display = tb && tb.classList.contains('open') ? 'none' : '';
 }
 function togglePgTheme() {
   toggleTheme();
@@ -587,6 +588,14 @@ window.addEventListener('read-mode-change', () => {
 });
 window.addEventListener('reader-settings-change', () => {
   if (getReadMode() === 'page' && $('pageViewport')) setTimeout(() => pgCalculatePages(), 150);
+});
+
+// ====== Resize handling ======
+let pgResizeTimer = 0;
+window.addEventListener('resize', () => {
+  if (getReadMode() !== 'page' || !$('pageViewport')) return;
+  clearTimeout(pgResizeTimer);
+  pgResizeTimer = setTimeout(() => pgCalculatePages(), 200);
 });
 
 // ====== Image click ======

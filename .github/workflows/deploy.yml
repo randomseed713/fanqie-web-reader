@@ -19,6 +19,7 @@ jobs:
           key: ${{ secrets.VPS_SSH_KEY }}
           port: ${{ secrets.VPS_PORT || 22 }}
           script: |
+            set -e
             cd /projects/fanqie-web-reader
             
             # Reset any local changes and pull latest code
@@ -26,28 +27,17 @@ jobs:
             git reset --hard origin/main
             echo "Current commit: $(git rev-parse --short HEAD)"
             
-            # Free disk space aggressively (critical for 1C1G VPS)
+            # ===== STEP 1: Aggressive cleanup to free disk & memory =====
             echo "=== Disk before cleanup ==="
             df -h /
             docker compose down --remove-orphans 2>/dev/null || true
             docker system prune -af --volumes
+            # Also clean apt cache
+            apt-get clean 2>/dev/null || true
             echo "=== Disk after cleanup ==="
             df -h /
             
-            # Build and start web reader
-            echo "Building web reader..."
-            docker compose build --no-cache fanqie-web-reader
-            docker compose up -d fanqie-web-reader
-            
-            # --- Setup unidbg directly on host ---
-            UNIDBG_DIR=/opt/unidbg
-            UNIDBG_JAR="$UNIDBG_DIR/unidbg-boot-server.jar"
-            PID_FILE="$UNIDBG_DIR/unidbg.pid"
-            JAR_URL="https://github.com/mtongle/fqnovel-unidbg/releases/download/v0.0.4/unidbg-boot-server-0.0.4.jar"
-            
-            mkdir -p "$UNIDBG_DIR"
-            
-            # Ensure swap exists (unidbg needs native memory for ARM emulation)
+            # ===== STEP 2: Ensure swap =====
             if ! swapon --show | grep -q /swapfile; then
               if [ ! -f /swapfile ]; then
                 echo "Creating 1GB swap file..."
@@ -59,108 +49,119 @@ jobs:
               echo "Swap enabled"
             fi
             
-            # Install JRE + required libs if not present
+            # ===== STEP 3: Install JRE if needed =====
+            export DEBIAN_FRONTEND=noninteractive
             if ! command -v java &>/dev/null; then
-              echo "Installing default JRE (Debian 12)..."
-              apt-get update -qq && apt-get install -y -qq default-jre-headless curl libstdc++6
+              echo "Installing default JRE..."
+              apt-get update -qq
+              apt-get install -y -qq --no-install-recommends default-jre-headless curl libstdc++6
             fi
             JAVA_BIN=$(which java)
-            echo "Java version: $($JAVA_BIN -version 2>&1 | head -1)"
+            echo "Java: $($JAVA_BIN -version 2>&1 | head -1)"
             
-            # Download unidbg JAR if not present
+            # ===== STEP 4: Setup unidbg directory =====
+            UNIDBG_DIR=/opt/unidbg
+            UNIDBG_JAR="$UNIDBG_DIR/unidbg-boot-server.jar"
+            PID_FILE="$UNIDBG_DIR/unidbg.pid"
+            JAR_URL="https://github.com/mtongle/fqnovel-unidbg/releases/download/v0.0.4/unidbg-boot-server-0.0.4.jar"
+            mkdir -p "$UNIDBG_DIR"
+            
+            # Download JAR if needed
             if [ ! -f "$UNIDBG_JAR" ]; then
               echo "Downloading unidbg JAR..."
-              curl -fsSL -o "$UNIDBG_JAR" "$JAR_URL"
+              curl -fL --retry 3 -o "$UNIDBG_JAR" "$JAR_URL"
               echo "JAR size: $(ls -lh $UNIDBG_JAR | awk '{print $5}')"
             else
               echo "unidbg JAR exists ($(ls -lh $UNIDBG_JAR | awk '{print $5}'))"
             fi
             
-            # Create minimal config: single worker, no async, small device pool
+            # Write config (single worker, no async)
             printf 'server:\n  port: 8099\nspring:\n  redis:\n    host: 0.0.0.0\napplication:\n  unidbg:\n    dynarmic: false\n    verbose: false\n    async: false\nfq:\n  api:\n    base-url: https://api5-normal-sinfonlineb.fqnovel.com\n    device-pool:\n      enabled: true\n      size: 1\n' > "$UNIDBG_DIR/application.yml"
+            echo "Config written"
             
-            # Stop old unidbg process
+            # Stop old unidbg
             if [ -f "$PID_FILE" ]; then
               OLD_PID=$(cat "$PID_FILE")
               if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
                 echo "Stopping old unidbg PID: $OLD_PID"
-                kill "$OLD_PID" 2>/dev/null || true
+                kill "$OLD_PID" || true
                 sleep 3
               fi
               rm -f "$PID_FILE"
             fi
             
-            # Stop Docker containers NOW to free memory before starting unidbg
-            echo "Stopping Docker containers to free memory..."
-            cd /projects/fanqie-web-reader
-            docker compose down --remove-orphans 2>/dev/null || true
-            docker system prune -f 2>/dev/null || true
-            
-            echo "--- Memory before starting unidbg ---"
+            # ===== STEP 5: Start unidbg (Docker is down, max RAM available) =====
+            echo "=== Memory before unidbg ==="
             free -h
-            
-            # Clear old log and start unidbg (point to external config dir)
             echo "Starting unidbg..."
-            cd "$UNIDBG_DIR"
             : > "$UNIDBG_DIR/unidbg.log"
-            nohup "$JAVA_BIN" \
+            cd "$UNIDBG_DIR"
+            setsid nohup "$JAVA_BIN" \
               -Xms64m -Xmx192m -XX:MaxMetaspaceSize=96m -XX:MaxDirectMemorySize=64m \
               -XX:+UseSerialGC -XX:ActiveProcessorCount=1 \
               -jar "$UNIDBG_JAR" \
-              --spring.config.additional-location=file:$UNIDBG_DIR/ \
-              > "$UNIDBG_DIR/unidbg.log" 2>&1 &
+              --spring.config.additional-location=file:"$UNIDBG_DIR"/ \
+              > "$UNIDBG_DIR/unidbg.log" 2>&1 < /dev/null &
             UNIDBG_PID=$!
             echo $UNIDBG_PID > "$PID_FILE"
             echo "unidbg PID: $UNIDBG_PID"
-            disown
+            disown || true
             
-            # Wait for unidbg to initialize (ARM emulation needs time)
-            echo "Waiting for unidbg to start..."
+            # Wait for unidbg: poll /api/fq-signature/test (port 8099)
+            echo "Waiting for unidbg to initialize ARM emulator..."
             UNIDBG_READY=0
-            for i in $(seq 1 20); do
+            for i in $(seq 1 24); do
               sleep 10
               if ! kill -0 "$UNIDBG_PID" 2>/dev/null; then
-                echo "unidbg process died!"
-                tail -30 "$UNIDBG_DIR/unidbg.log"
+                echo "!!! unidbg process died !!!"
+                tail -40 "$UNIDBG_DIR/unidbg.log"
                 break
               fi
-              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "000")
-              echo "unidbg check $i: HTTP $STATUS"
-              if [ "$STATUS" = "200" ]; then
+              # Check if port 8099 responds (any non-connection-refused means Tomcat is up)
+              CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 http://127.0.0.1:8099/api/fq-signature/test 2>/dev/null || echo "000")
+              echo "unidbg check $i: HTTP $CODE"
+              if [ "$CODE" != "000" ] && [ "$CODE" != "502" ] && [ "$CODE" != "503" ]; then
                 UNIDBG_READY=1
                 break
               fi
             done
             
             if [ "$UNIDBG_READY" != "1" ]; then
-              echo "unidbg failed to start. Log:"
-              tail -40 "$UNIDBG_DIR/unidbg.log"
+              echo "!!! unidbg did not become ready in time !!!"
+              echo "--- Log ---"
+              tail -50 "$UNIDBG_DIR/unidbg.log"
+              echo "--- Memory ---"
+              free -h
+            else
+              echo "unidbg is READY!"
             fi
             
-            # Now build and start web reader
+            # ===== STEP 6: Build & start web reader =====
             cd /projects/fanqie-web-reader
-            echo "=== Memory after unidbg started ==="
-            free -h
+            echo "=== Disk before docker build ==="
+            df -h /
+            # Prune docker again to free any build cache from previous runs
+            docker system prune -f 2>/dev/null || true
+            
             echo "Building web reader..."
             docker compose build --no-cache fanqie-web-reader
             docker compose up -d fanqie-web-reader
             
-            # Wait for web reader to start
-            sleep 10
+            # Wait for web reader
+            sleep 8
             
-            # Verify deployment
-            echo "--- Running containers ---"
+            # ===== STEP 7: Verify =====
+            echo "=== Final status ==="
             docker compose ps
-            echo "--- Health check ---"
+            echo "--- Health checks ---"
             curl -s -o /dev/null -w "Web reader HTTP %{http_code}\n" http://127.0.0.1:8199/ || echo "Web reader not ready"
-            UNIDBG_FINAL=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "000")
-            echo "Unidbg final health: $UNIDBG_FINAL"
-            if [ "$UNIDBG_FINAL" != "200" ]; then
-              echo "--- unidbg log tail ---"
-              tail -30 "$UNIDBG_DIR/unidbg.log"
-            fi
+            UNIDBG_FINAL=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8099/api/fq-signature/test 2>/dev/null || echo "000")
+            echo "Unidbg HTTP $UNIDBG_FINAL"
             
-            # Clean up
+            echo "=== Memory ==="
+            free -h
+            echo "=== Disk ==="
+            df -h /
+            
             docker image prune -f
-            
             echo "Deployment completed successfully!"

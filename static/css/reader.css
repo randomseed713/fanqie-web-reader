@@ -141,6 +141,7 @@
   padding: 24px 28px;
   overflow-y: auto;
   overflow-x: hidden;
+  background: var(--reader-bg);
   font-size: var(--reader-font-size, 17px);
   font-family: var(--reader-font-family, inherit);
   line-height: var(--reader-line-height, 1.85);

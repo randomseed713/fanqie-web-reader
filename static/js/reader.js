@@ -379,15 +379,24 @@ function pgCalculatePages() {
   // pushes beyond the padded area.
   
   // Split paragraphs into pages
-  const maxH = measurer.clientHeight;
-  console.log('[pgCalc] ch=' + ch + ' maxH=' + maxH + ' scrollH=' + measurer.scrollHeight + ' padTop=' + getComputedStyle(measurer).paddingTop + ' padBot=' + getComputedStyle(measurer).paddingBottom);
+  // scrollHeight includes padding, but we want to compare pure content height
+  // against pure content area (clientHeight - padding).
+  // Equivalent: scrollHeight - padTotal > clientHeight - padTotal
+  // Simplifies to: scrollHeight > clientHeight (same as before)
+  // BUT the issue is scrollHeight = max(clientHeight, content+padding),
+  // so when content+padding <= clientHeight, scrollHeight = clientHeight (no overflow detected)
+  // even though content could still fit more paragraphs.
+  // Fix: use scrollHeight of inner content by temporarily removing padding from comparison.
+  const cs = getComputedStyle(measurer);
+  const padTotal = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+  const maxH = measurer.clientHeight - padTotal; // pure content area height
   const pages = [];
   let currentPage = '';
   
   for (const ph of paraHtmls) {
     measurer.innerHTML = currentPage + ph;
-    if (measurer.scrollHeight > maxH && currentPage !== '') {
-      console.log('[pgCalc] overflow: scrollH=' + measurer.scrollHeight + ' > maxH=' + maxH + ', splitting');
+    // scrollHeight - padTotal = pure content height
+    if ((measurer.scrollHeight - padTotal) > maxH && currentPage !== '') {
       pages.push(currentPage);
       currentPage = ph;
       measurer.innerHTML = ph;

@@ -173,7 +173,7 @@
 }
 .page-toolbar-top .back-btn { font-size: 20px; }
 .page-toolbar-top .chapter-name { flex: 1; font-size: 14px; font-weight: 500; text-align: center; color: var(--text-secondary); }
-.page-toolbar-top .icon-btn { width: 34px; height: 34px; font-size: 14px; }
+.page-toolbar-top .icon-btn { width: 36px; height: 36px; font-size: 14px; }
 
 .page-toolbar-bottom {
   background: var(--card-bg); padding: var(--sp-2) 0 0; border-radius: var(--radius-md) var(--radius-md) 0 0;

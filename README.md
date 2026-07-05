@@ -121,6 +121,7 @@ fanqie-web-reader/
 
 - [番茄小说](https://fanqienovel.com/) — 内容来源平台
 - 番茄小说社区 API — 上游接口服务
+- [fqnovel-unidbg](https://github.com/mtongle/fqnovel-unidbg) — 段评接口 X-Argus 签名代理（unidbg 补环境方案）
 - [FQToolBox](https://github.com/jackwd387/FQToolBox) — 作者信息接口参考
 - [fontTools](https://github.com/fonttools/fonttools) — 字体文件解析
 - [Lucide](https://lucide.dev/) — 图标库

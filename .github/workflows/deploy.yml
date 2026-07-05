@@ -42,6 +42,7 @@ jobs:
             # --- Setup unidbg directly on host ---
             UNIDBG_DIR=/opt/unidbg
             UNIDBG_JAR="$UNIDBG_DIR/unidbg-boot-server.jar"
+            PID_FILE="$UNIDBG_DIR/unidbg.pid"
             JAR_URL="https://github.com/mtongle/fqnovel-unidbg/releases/download/v0.0.4/unidbg-boot-server-0.0.4.jar"
             
             mkdir -p "$UNIDBG_DIR"
@@ -57,8 +58,6 @@ jobs:
               swapon /swapfile
               echo "Swap enabled"
             fi
-            echo "--- Memory status ---"
-            free -h
             
             # Install JRE + required libs if not present
             if ! command -v java &>/dev/null; then
@@ -77,8 +76,27 @@ jobs:
               echo "unidbg JAR exists ($(ls -lh $UNIDBG_JAR | awk '{print $5}'))"
             fi
             
-            # Stop any existing unidbg process (read PID from pidfile, avoid matching current shell)
-            PID_FILE="$UNIDBG_DIR/unidbg.pid"
+            # Create minimal config: single worker, no async, small device pool
+            cat > "$UNIDBG_DIR/application.yml" << 'EOF'
+server:
+  port: 8099
+spring:
+  redis:
+    host: 0.0.0.0
+application:
+  unidbg:
+    dynarmic: false
+    verbose: false
+    async: false
+fq:
+  api:
+    base-url: https://api5-normal-sinfonlineb.fqnovel.com
+    device-pool:
+      enabled: true
+      size: 1
+EOF
+            
+            # Stop old unidbg process
             if [ -f "$PID_FILE" ]; then
               OLD_PID=$(cat "$PID_FILE")
               if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
@@ -89,50 +107,74 @@ jobs:
               rm -f "$PID_FILE"
             fi
             
-            # Start unidbg in background with memory limits
-            # -Xmx256m heap, -XX:MaxDirectMemorySize=128m for native buffers, single worker thread to save RAM
+            # Stop Docker containers NOW to free memory before starting unidbg
+            echo "Stopping Docker containers to free memory..."
+            cd /projects/fanqie-web-reader
+            docker compose down --remove-orphans 2>/dev/null || true
+            docker system prune -f 2>/dev/null || true
+            
+            echo "--- Memory before starting unidbg ---"
+            free -h
+            
+            # Clear old log and start unidbg (point to external config dir)
             echo "Starting unidbg..."
+            cd "$UNIDBG_DIR"
+            : > "$UNIDBG_DIR/unidbg.log"
             nohup "$JAVA_BIN" \
-              -Xms64m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=128m \
+              -Xms64m -Xmx192m -XX:MaxMetaspaceSize=96m -XX:MaxDirectMemorySize=64m \
               -XX:+UseSerialGC -XX:ActiveProcessorCount=1 \
-              -Dapplication.unidbg.async=false \
-              -Dfq.api.device-pool.size=1 \
-              -jar "$UNIDBG_JAR" > "$UNIDBG_DIR/unidbg.log" 2>&1 &
+              -jar "$UNIDBG_JAR" \
+              --spring.config.additional-location=file:$UNIDBG_DIR/ \
+              > "$UNIDBG_DIR/unidbg.log" 2>&1 &
             UNIDBG_PID=$!
             echo $UNIDBG_PID > "$PID_FILE"
-            echo "unidbg PID: $UNIDBG_PID (saved to $PID_FILE)"
+            echo "unidbg PID: $UNIDBG_PID"
             disown
             
-            # Wait for services to start (unidbg needs ~60-90s to initialize ARM emulation)
-            echo "Waiting for services to start..."
-            sleep 30
+            # Wait for unidbg to initialize (ARM emulation needs time)
+            echo "Waiting for unidbg to start..."
+            UNIDBG_READY=0
+            for i in $(seq 1 20); do
+              sleep 10
+              if ! kill -0 "$UNIDBG_PID" 2>/dev/null; then
+                echo "unidbg process died!"
+                tail -30 "$UNIDBG_DIR/unidbg.log"
+                break
+              fi
+              STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "000")
+              echo "unidbg check $i: HTTP $STATUS"
+              if [ "$STATUS" = "200" ]; then
+                UNIDBG_READY=1
+                break
+              fi
+            done
             
-            # Verify deployment (run docker compose from project dir)
+            if [ "$UNIDBG_READY" != "1" ]; then
+              echo "unidbg failed to start. Log:"
+              tail -40 "$UNIDBG_DIR/unidbg.log"
+            fi
+            
+            # Now build and start web reader
             cd /projects/fanqie-web-reader
+            echo "=== Memory after unidbg started ==="
+            free -h
+            echo "Building web reader..."
+            docker compose build --no-cache fanqie-web-reader
+            docker compose up -d fanqie-web-reader
+            
+            # Wait for web reader to start
+            sleep 10
+            
+            # Verify deployment
             echo "--- Running containers ---"
             docker compose ps
             echo "--- Health check ---"
             curl -s -o /dev/null -w "Web reader HTTP %{http_code}\n" http://127.0.0.1:8199/ || echo "Web reader not ready"
-            
-            # Check if unidbg process is alive
-            if [ -f "$PID_FILE" ] && kill -0 "$(cat $PID_FILE)" 2>/dev/null; then
-              echo "unidbg process is running (PID $(cat $PID_FILE))"
-            else
-              echo "unidbg process DIED! Log:"
-              tail -30 "$UNIDBG_DIR/unidbg.log"
-            fi
-            
-            for i in 1 2 3 4 5 6 7 8 9 10; do
-              UNIDBG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "000")
-              echo "Unidbg health (attempt $i): $UNIDBG_STATUS"
-              if [ "$UNIDBG_STATUS" = "200" ]; then break; fi
-              sleep 15
-            done
-            
-            # If unidbg still not ready, show log tail
-            if [ "$UNIDBG_STATUS" != "200" ]; then
+            UNIDBG_FINAL=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "000")
+            echo "Unidbg final health: $UNIDBG_FINAL"
+            if [ "$UNIDBG_FINAL" != "200" ]; then
               echo "--- unidbg log tail ---"
-              tail -20 "$UNIDBG_DIR/unidbg.log" 2>/dev/null || echo "no log"
+              tail -30 "$UNIDBG_DIR/unidbg.log"
             fi
             
             # Clean up

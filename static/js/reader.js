@@ -73,8 +73,12 @@ function renderScrollReader(app, bid, idx) {
   const lineHeight = getLineHeight();
 
   app.innerHTML = `<div class="scroll-reader view" id="scrollReader">
+    <div class="page-header">
+      <button class="back-btn" onclick="goBack()"><i data-lucide="chevron-left" width="22" height="22"></i></button>
+      <span class="chapter-name">${escapeHtml(chapterTitle)}</span>
+      <button class="settings-btn" onclick="toggleToolbar()">Aa</button>
+    </div>
     <div class="reader-chapter-info">
-      <div class="reader-title">${escapeHtml(chapterTitle)}</div>
       <div class="reader-bookname">${escapeHtml(d.bookName)} · 第 ${idx+1}/${total} 章 · 约 ${readMin} 分钟</div>
     </div>
     <div class="reader-content" id="readerContent">${renderParas(paras, c.authorSpeak)}</div>
@@ -760,6 +764,16 @@ function setupPgGestures() {
       const otherIdx = pg.curPage + otherDir;
       const otherEl = viewport ? viewport.querySelector(`.page-page[data-page="${otherIdx}"]`) : null;
       if (otherEl) { otherEl.style.display = 'none'; otherEl.style.transition = ''; otherEl.style.transform = ''; }
+      // Apply transition animation
+      const dur = '0.3s ease';
+      if (dragCurrentPage) {
+        dragCurrentPage.style.transition = `transform ${dur}`;
+        dragCurrentPage.style.transform = `translateX(${-dir * 100}%)`;
+      }
+      if (targetEl) {
+        targetEl.style.transition = `transform ${dur}`;
+        targetEl.style.transform = 'translateX(0)';
+      }
       const timeout = 320;
       setTimeout(() => {
         if (dragCurrentPage && dragCurrentPage.parentNode) { dragCurrentPage.style.display = 'none'; dragCurrentPage.style.transition = ''; dragCurrentPage.style.transform = ''; dragCurrentPage.style.boxShadow = ''; }
@@ -781,6 +795,29 @@ function setupPgGestures() {
         return;
       }
       // Cancelled drag — animate everything back
+      const snapDur = '0.25s ease';
+      if (dragCurrentPage) {
+        dragCurrentPage.style.transition = `transform ${snapDur}`;
+        dragCurrentPage.style.transform = 'translateX(0)';
+        dragCurrentPage.style.boxShadow = '';
+      }
+      const prev = viewport ? viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`) : null;
+      const next = viewport ? viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`) : null;
+      if (prev && prev.style.display !== 'none') {
+        prev.style.transition = `transform ${snapDur}`;
+        prev.style.transform = 'translateX(-100%)';
+      }
+      if (next && next.style.display !== 'none') {
+        next.style.transition = `transform ${snapDur}`;
+        next.style.transform = 'translateX(100%)';
+      }
+      pg.animating = true;
+      setTimeout(() => {
+        if (dragCurrentPage) { dragCurrentPage.style.transition = ''; dragCurrentPage.style.transform = ''; }
+        if (prev) { prev.style.display = 'none'; prev.style.transition = ''; prev.style.transform = ''; }
+        if (next) { next.style.display = 'none'; next.style.transition = ''; next.style.transform = ''; }
+        pg.animating = false;
+      }, 260);
     }
     dragCurrentPage = null;
   }, { passive: true });

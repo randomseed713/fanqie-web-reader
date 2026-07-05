@@ -58,7 +58,7 @@ function router() {
     lastTopTab = path;
   }
   const header = document.querySelector('.header');
-  if (header) header.style.display = isPageMode ? 'none' : '';
+  if (header) header.style.display = isReader ? 'none' : '';
   document.body.style.overflow = isPageMode ? 'hidden' : '';
   // Show back button on: detail, comments, search-with-query (results page)
   // Hide on: search-home, shelf, reader (has its own back)
@@ -124,9 +124,11 @@ route('reader', async (q, app) => {
   const bid = q.book_id;
   let idx = parseInt(q.chapter_idx || '0');
   $('pageTitle').textContent = '加载中...';
+  const header = document.querySelector('.header');
+  if (header) header.style.display = 'none';
   if (!cache.detail[bid]) { app.innerHTML = skeletonReader(); await fetchDetail(bid); }
   const d = cache.detail[bid];
-  if (!d || !d.chapters.length) { app.innerHTML = errorHtml('加载失败', `reader?book_id=${bid}&chapter_idx=0`); return; }
+  if (!d || !d.chapters.length) { app.innerHTML = errorHtml('加载失败', `reader?book_id=${bid}&chapter_idx=0`); if (header) header.style.display = ''; return; }
   if (idx < 0 || idx >= d.chapters.length) idx = 0;
   currentBookId = bid;
   currentChapterIdx = idx;

@@ -408,9 +408,10 @@ function skeletonDetail() {
 // 4. Reader skeleton
 function skeletonReader() {
   let h = '<div class="skel-reader">';
-  h += `<div class="skel-reader-header">
-    <div class="skel-line" style="height:18px;max-width:65%"></div>
-    <div class="skel-line" style="height:11px;max-width:45%"></div>
+  h += `<div class="page-header">
+    <div class="skel-line" style="width:44px;height:44px;border-radius:50%"></div>
+    <div class="skel-line" style="height:14px;max-width:40%;flex:1;margin:0 auto"></div>
+    <div class="skel-line" style="width:36px;height:36px;border-radius:8px"></div>
   </div>`;
   for (let i = 0; i < 8; i++) {
     const mr = [8,4,25,12,35,4,15,45][i];

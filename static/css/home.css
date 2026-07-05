@@ -59,7 +59,7 @@
 .shelf-empty-cta:active { transform: scale(0.96); background: var(--accent-hover); }
 
 /* Home discover */
-.home-discover { padding: 8px 0 100px; }
+.home-discover { padding: 8px 0 0; }
 .discover-welcome { text-align: center; padding: var(--sp-3) var(--sp-5) var(--sp-2); }
 .welcome-emoji { font-size: 40px; margin-bottom: var(--sp-2); line-height: 1; }
 .welcome-title { font-size: var(--fs-xl); font-weight: 700; margin-bottom: var(--sp-1); color: var(--text); }

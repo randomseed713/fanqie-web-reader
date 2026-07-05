@@ -31,7 +31,8 @@
 
 /* ==================== Scroll Reader ==================== */
 .scroll-reader { background: var(--reader-bg); min-height: 100vh; padding-bottom: calc(80px + env(safe-area-inset-bottom)); transition: background var(--dur); }
-.scroll-reader .reader-chapter-info { text-align: center; padding: var(--sp-8) var(--sp-6) var(--sp-6); }
+.scroll-reader .page-header { position: sticky; top: 0; z-index: 10; background: var(--reader-bg); border-bottom: 1px solid var(--border); transition: background var(--dur); }
+.scroll-reader .reader-chapter-info { text-align: center; padding: var(--sp-5) var(--sp-6) var(--sp-3); }
 .scroll-reader .reader-title { font-size: var(--fs-lg); font-weight: 700; color: var(--reader-title); line-height: var(--lh-tight); margin-bottom: var(--sp-2); }
 .scroll-reader .reader-bookname { color: var(--text-muted); font-size: var(--fs-sm); }
 .scroll-reader .reader-content { padding: 0 var(--sp-5); font-size: var(--reader-font-size, 17px); font-family: var(--reader-font-family, inherit); position: relative; max-width: 680px; margin: 0 auto; }

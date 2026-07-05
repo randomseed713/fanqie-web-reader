@@ -388,53 +388,11 @@ async def paragraph_comment_counts(request_body: dict = Body(default={})):
             timeout=20.0,
         )
         data = r.json()
-        print(f"DEBUG paragraph_comment_counts raw response (first 500 chars): {json.dumps(data, ensure_ascii=False)[:500]}")
         counts = _extract_para_counts(data)
         return {"code": 200, "data": counts, "msg": "success"}
     except Exception as e:
-        print(f"DEBUG paragraph_comment_counts ERROR: {type(e).__name__}: {e}")
+        print(f"paragraph_comment_counts ERROR: {type(e).__name__}: {e}")
     return {"code": 200, "data": {}, "msg": "no data"}
-
-
-@app.get("/api/debug/unidbg")
-async def debug_unidbg():
-    """Debug endpoint to test unidbg connectivity and comment API."""
-    results = {"unidbg_api": UNIDBG_API}
-    try:
-        r = await _fanqie_client.get(f"{UNIDBG_API}/", timeout=5.0)
-        results["root_status"] = r.status_code
-    except Exception as e:
-        results["root_error"] = f"{type(e).__name__}: {e}"
-    
-    # Test comment counts API
-    test_chapter = "7598161208222417433"
-    test_book = "7598148649297660953"
-    try:
-        r = await _fanqie_client.post(
-            f"{UNIDBG_API}/api/fqcomment/idea",
-            json={"chapterId": test_chapter, "bookId": test_book, "commentSource": 2, "serverChannel": 17},
-            timeout=20.0,
-        )
-        text = r.text[:2000]
-        results["comment_idea_status"] = r.status_code
-        results["comment_idea_preview"] = text
-    except Exception as e:
-        results["comment_idea_error"] = f"{type(e).__name__}: {e}"
-    
-    # Try list endpoint too
-    try:
-        r = await _fanqie_client.post(
-            f"{UNIDBG_API}/api/fqcomment/list",
-            json={"chapterId": test_chapter, "bookId": test_book, "paraIndex": 0, "commentSource": 2, "commentType": 1, "serverChannel": 18, "groupType": 15, "count": 20},
-            timeout=25.0,
-        )
-        text = r.text[:2000]
-        results["comment_list_status"] = r.status_code
-        results["comment_list_preview"] = text
-    except Exception as e:
-        results["comment_list_error"] = f"{type(e).__name__}: {e}"
-    
-    return results
 
 
 def _mock_para_counts(chapter_id: str) -> dict:
@@ -559,7 +517,7 @@ async def paragraph_comments(request_body: dict = Body(default={})):
         comments = _normalize_comments(data)
         return {"code": 200, "data": comments, "msg": "success"}
     except Exception as e:
-        print(f"DEBUG paragraph_comments ERROR: {e}")
+        print(f"paragraph_comments ERROR: {e}")
     return {"code": 200, "data": [], "msg": "no paragraph comments"}
 
 

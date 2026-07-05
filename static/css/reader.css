@@ -1,5 +1,11 @@
 /* Reader styles: Scroll reader, reader bottom sheet, settings, paginated reader */
 
+/* Theme switch transition */
+::view-transition-old(root) { animation: 0.15s ease-out both fade-out; }
+::view-transition-new(root) { animation: 0.15s ease-in both fade-in; }
+@keyframes fade-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
 /* ==================== Scroll Reader ==================== */
 .scroll-reader { background: var(--reader-bg); min-height: 100vh; padding-bottom: calc(80px + env(safe-area-inset-bottom)); transition: background var(--dur); }
 .scroll-reader .reader-chapter-info { text-align: center; padding: var(--sp-8) var(--sp-6) var(--sp-6); }

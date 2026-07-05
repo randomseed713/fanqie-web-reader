@@ -76,27 +76,35 @@ function initTheme() {
   else applyTheme(saved);
 }
 function applyTheme(themeId) {
-  document.body.classList.remove('theme-default', 'theme-sepia', 'theme-green', 'theme-dark');
-  let appliedId = themeId;
-  if (themeId === 'auto') {
-    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    document.body.classList.add(sysDark ? 'theme-dark' : 'theme-default');
-    localStorage.setItem('readerTheme', 'auto');
-    appliedId = sysDark ? 'dark' : 'default';
+  const doApply = () => {
+    document.body.classList.remove('theme-default', 'theme-sepia', 'theme-green', 'theme-dark');
+    let appliedId = themeId;
+    if (themeId === 'auto') {
+      const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      document.body.classList.add(sysDark ? 'theme-dark' : 'theme-default');
+      localStorage.setItem('readerTheme', 'auto');
+      appliedId = sysDark ? 'dark' : 'default';
+    } else {
+      document.body.classList.add('theme-' + themeId);
+      localStorage.setItem('readerTheme', themeId);
+    }
+    const btn = $('themeBtn');
+    if (btn) {
+      const iconName = themeId === 'auto' ? 'monitor' : (THEMES.find(x => x.id === themeId) || THEMES[0]).icon;
+      btn.innerHTML = `<i data-lucide="${iconName}" width="16" height="16"></i>`;
+      lucide.createIcons({ nodes: [btn] });
+    }
+    // Update swatch active states in reader toolbars
+    document.querySelectorAll('.bg-swatch').forEach(s => {
+      s.classList.toggle('active', s.classList.contains('swatch-' + appliedId));
+    });
+  };
+  // Use View Transitions API for smooth theme switch animation
+  if (document.startViewTransition) {
+    document.startViewTransition(doApply);
   } else {
-    document.body.classList.add('theme-' + themeId);
-    localStorage.setItem('readerTheme', themeId);
+    doApply();
   }
-  const btn = $('themeBtn');
-  if (btn) {
-    const iconName = themeId === 'auto' ? 'monitor' : (THEMES.find(x => x.id === themeId) || THEMES[0]).icon;
-    btn.innerHTML = `<i data-lucide="${iconName}" width="16" height="16"></i>`;
-    lucide.createIcons({ nodes: [btn] });
-  }
-  // Update swatch active states in reader toolbars
-  document.querySelectorAll('.bg-swatch').forEach(s => {
-    s.classList.toggle('active', s.classList.contains('swatch-' + appliedId));
-  });
 }
 function toggleTheme() {
   const cur = getTheme();

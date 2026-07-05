@@ -286,7 +286,8 @@ function renderPageReader(app, bid, idx) {
               </div>
               <span class="settings-label" style="margin-left:auto">模式</span>
               <div class="settings-chips" style="flex:0">
-                <button class="settings-chip${curMode==='page'?' active':''}" onclick="cycleReadMode()">翻页</button>
+                <button class="settings-chip${curMode==='page'?' active':''}" onclick="setReadMode('page');cycleReadMode()">翻页</button>
+                <button class="settings-chip${curMode==='scroll'?' active':''}" onclick="setReadMode('scroll');cycleReadMode()">滚动</button>
               </div>
             </div>
           </div>

@@ -64,8 +64,12 @@ jobs:
             fi
             
             # Stop any existing unidbg process
-            pkill -f "unidbg-boot-server" 2>/dev/null || true
-            sleep 2
+            OLD_PID=$(pgrep -f "unidbg-boot-server.jar" || true)
+            if [ -n "$OLD_PID" ]; then
+              echo "Stopping old unidbg PID: $OLD_PID"
+              kill $OLD_PID 2>/dev/null || true
+              sleep 3
+            fi
             
             # Start unidbg in background with memory limits
             echo "Starting unidbg..."

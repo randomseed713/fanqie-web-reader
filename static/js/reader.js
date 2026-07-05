@@ -361,14 +361,14 @@ function pgCalculatePages() {
   // This avoids any mismatch between manual style replication and actual CSS.
   const measurer = document.createElement('div');
   measurer.className = 'page-page';
-  measurer.style.cssText = 'position:fixed;visibility:hidden;left:-9999px;top:0;width:' + cw + 'px;height:' + ch + 'px;inset:auto;overflow:hidden;';
+  measurer.style.cssText = 'position:fixed;visibility:hidden;left:-9999px;top:0;width:' + cw + 'px;height:' + ch + 'px;inset:auto;overflow:visible;';
   // Attach inside the reader so CSS variables are available
   const reader = $('paginatedReader');
   if (reader) reader.appendChild(measurer);
   else document.body.appendChild(measurer);
   
-  // Available content height: with border-box, clientHeight = height (includes padding).
-  // Actual content area = clientHeight - paddingTop - paddingBottom.
+  // With overflow:visible, scrollHeight = actual content height (no padding included).
+  // Content area height = clientHeight - paddingTop - paddingBottom.
   const computedStyle = getComputedStyle(measurer);
   const padTop = parseFloat(computedStyle.paddingTop) || 0;
   const padBot = parseFloat(computedStyle.paddingBottom) || 0;

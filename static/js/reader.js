@@ -292,9 +292,9 @@ function renderPageReader(app, bid, idx) {
           </div>
           <div class="sheet-divider"></div>
           <div class="nav-row">
-            <button ${prevDisabled?'disabled':''} onclick="pgNavChapter(${idx-1})">上一章</button>
+            <button ${prevDisabled?'disabled':''} onclick="pgSwitchChapter(${idx-1},-1)">上一章</button>
             <button onclick="showChapterList()">目录</button>
-            <button ${nextDisabled?'disabled':''} onclick="pgNavChapter(${idx+1})">下一章</button>
+            <button ${nextDisabled?'disabled':''} onclick="pgSwitchChapter(${idx+1},0)">下一章</button>
           </div>
           <div class="slider-row">
             <input type="range" id="pageSlider" min="1" max="1" value="1" oninput="pgSliderGo(this.value)">
@@ -473,15 +473,67 @@ function pgGoToPage(target, animate) {
 
 function pageNext() {
   if (pg.curPage < pg.totalPages - 1) pgGoToPage(pg.curPage + 1, true);
-  else if (pg.idx < pg.total - 1) pgNavChapter(pg.idx + 1);
+  else if (pg.idx < pg.total - 1) pgSwitchChapter(pg.idx + 1, 0);
 }
 function pagePrev() {
   if (pg.curPage > 0) pgGoToPage(pg.curPage - 1, true);
-  else if (pg.idx > 0) pgNavChapter(pg.idx - 1);
+  else if (pg.idx > 0) pgSwitchChapter(pg.idx - 1, -1);
 }
-function pgNavChapter(newIdx) {
-  if (newIdx < 0 || newIdx >= pg.total) return;
-  navigate(`reader?book_id=${pg.bid}&chapter_idx=${newIdx}`);
+async function pgSwitchChapter(newIdx, startPageHint) {
+  const d = cache.detail[pg.bid];
+  if (!d || newIdx < 0 || newIdx >= d.chapters.length) return;
+  const chapterId = d.chapters[newIdx].ChapterID;
+  // Ensure content is loaded (may need fetch)
+  if (!getContentCache(chapterId)) {
+    // Show a brief loading indicator on current page
+    const viewport = $('pageViewport');
+    if (viewport) {
+      const loader = document.createElement('div');
+      loader.className = 'page-page';
+      loader.style.cssText = 'display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:14px;';
+      loader.innerHTML = '加载中...';
+      viewport.appendChild(loader);
+    }
+    await fetchContent(chapterId);
+    // Remove loader
+    if (viewport) { const l = viewport.lastElementChild; if (l && l !== viewport.querySelector(`.page-page[data-page="${pg.curPage}"]`)) l.remove(); }
+  }
+  const c = getContentCache(chapterId);
+  if (!c || !c.paragraphs.length) return;
+
+  // Update state
+  pg.idx = newIdx;
+  pg.curPage = 0;
+  currentBookId = pg.bid;
+  currentChapterIdx = newIdx;
+  const chapterTitle = d.chapters[newIdx].Name || `第${newIdx+1}章`;
+  saveReaderProgress(pg.bid, newIdx, chapterId, chapterTitle, pg.total);
+
+  // Update header chapter name
+  const headerName = document.querySelector('.page-header .chapter-name');
+  if (headerName) headerName.textContent = chapterTitle;
+  const toolbarName = document.querySelector('.page-toolbar-top .chapter-name');
+  if (toolbarName) toolbarName.textContent = chapterTitle;
+
+  // Update footer
+  const footerLeft = document.querySelector('.page-footer-left');
+  if (footerLeft) footerLeft.innerHTML = `<span>${escapeHtml(d.bookName)}</span><span>·</span><span>第${newIdx+1}/${pg.total}章</span>`;
+
+  // Recalculate pages for new chapter
+  pgCalculatePages();
+
+  // Jump to last page if going back, first page if going forward
+  if (startPageHint === -1 && pg.totalPages > 1) {
+    pgGoToPage(pg.totalPages - 1, false);
+  }
+
+  // Update URL without full re-render
+  const newHash = `reader?book_id=${pg.bid}&chapter_idx=${newIdx}`;
+  if (location.hash.slice(1) !== newHash) {
+    history.replaceState(null, '', '#' + newHash);
+  }
+
+  preloadAdjacent(pg.bid, newIdx);
 }
 function pgSliderGo(val) { pgGoToPage(parseInt(val) - 1, false); }
 

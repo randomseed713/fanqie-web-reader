@@ -8,7 +8,9 @@ services:
       - "127.0.0.1:8199:8199"
     environment:
       - PARA_COMMENT_MOCK=false
-      - UNIDBG_API=http://unidbg:9999
+      - UNIDBG_API=http://unidbg:8099
+    depends_on:
+      - unidbg
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8199/', timeout=5)"]
@@ -18,9 +20,16 @@ services:
       start_period: 5s
 
   unidbg:
-    image: gxmandppx/unidbg-fq:latest
+    build:
+      context: ./unidbg
+      dockerfile: Dockerfile
     container_name: fanqie-unidbg
-    profiles: ["unidbg"]
     ports:
-      - "127.0.0.1:8099:9999"
+      - "127.0.0.1:8099:8099"
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8099/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 45s

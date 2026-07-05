@@ -26,35 +26,26 @@ jobs:
             git reset --hard origin/main
             echo "Current commit: $(git rev-parse --short HEAD)"
             
-            # Pull pre-built images (unidbg is optional, don't fail if blocked)
-            echo "Pulling unidbg image..."
-            docker pull gxmandppx/unidbg-fq:latest 2>&1 | tail -3 || echo "WARNING: unidbg image pull failed, comment API will be unavailable"
-            
-            # Rebuild and restart main service (with unidbg profile if image exists)
+            # Stop existing containers
             docker compose down --remove-orphans
-            docker compose build --no-cache fanqie-web-reader
             
-            # Start main service always
-            docker compose up -d fanqie-web-reader
+            # Rebuild both services (unidbg from source, web reader from local)
+            echo "Building services..."
+            docker compose build --no-cache
             
-            # Try to start unidbg (profiles include it)
-            UNIDBG_AVAILABLE=$(docker images -q gxmandppx/unidbg-fq:latest 2>/dev/null)
-            if [ -n "$UNIDBG_AVAILABLE" ]; then
-              echo "Starting unidbg..."
-              docker compose --profile unidbg up -d unidbg
-            else
-              echo "Skipping unidbg (image not available)"
-            fi
+            # Start all services
+            docker compose up -d
             
-            # Wait for services to start
-            sleep 8
+            # Wait for services to start (unidbg needs time to initialize unidbg VM)
+            echo "Waiting for services to start..."
+            sleep 30
             
             # Verify deployment
             echo "--- Running containers ---"
             docker compose ps
             echo "--- Health check ---"
-            curl -s -o /dev/null -w "Web reader HTTP %{http_code}\n" http://127.0.0.1:8199/
-            UNIDBG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 http://127.0.0.1:8099/health 2>/dev/null || echo "unreachable")
+            curl -s -o /dev/null -w "Web reader HTTP %{http_code}\n" http://127.0.0.1:8199/ || echo "Web reader not ready"
+            UNIDBG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "unreachable")
             echo "Unidbg health: $UNIDBG_STATUS"
             
             # Clean up old images

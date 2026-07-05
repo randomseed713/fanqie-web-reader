@@ -324,10 +324,46 @@ async def comments(
         )
         data = r.json()
         if data.get("code") == 200:
+            # Normalize nested Fanqie structure to flat user_name/avatar_url/content fields
+            inner = data.get("data") or {}
+            if isinstance(inner, dict):
+                d2 = inner.get("data") or inner
+                if isinstance(d2, dict):
+                    clist = d2.get("comment")
+                    if isinstance(clist, list):
+                        d2["comment"] = [_normalize_book_comment(c) for c in clist]
             return data
     except Exception:
         pass
     return {"code": 200, "data": [], "msg": "no comments"}
+
+
+def _normalize_book_comment(c: dict) -> dict:
+    """Flatten Fanqie book-level comment into user_name/avatar_url/content/reply_list shape."""
+    if not isinstance(c, dict):
+        return c
+    ui = c.get("user_info") or {}
+    user_name = ""
+    avatar_url = ""
+    if isinstance(ui, dict):
+        user_name = ui.get("user_name") or ui.get("nick_name") or ""
+        avatar_url = ui.get("user_avatar") or ui.get("avatar_url") or ""
+    content = c.get("text") or c.get("content") or ""
+    ts = c.get("create_timestamp") or c.get("create_time") or 0
+    if isinstance(ts, (int, float)) and ts > 1_000_000_000_000:
+        ts = ts // 1000
+    digg = c.get("digg_count") or 0
+    out = dict(c)  # copy to avoid mutating cached object
+    out["user_name"] = user_name or c.get("user_name") or "匿名"
+    out["avatar_url"] = _fix_img_url(avatar_url or c.get("avatar_url") or "")
+    out["content"] = content
+    out["create_time"] = ts
+    out["digg_count"] = digg
+    # Normalize replies
+    replies = c.get("reply_list") or c.get("reply_comment") or c.get("child_comments") or []
+    if isinstance(replies, list) and replies:
+        out["reply_list"] = [_normalize_book_comment(rc) for rc in replies if isinstance(rc, dict)]
+    return out
 
 
 @app.post("/api/paragraph_comment_counts")

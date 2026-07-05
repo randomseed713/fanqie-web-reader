@@ -413,18 +413,26 @@ function renderComments(app, bid) {
 function renderCommentItems(list) {
   let html = '';
   for (const c of list) {
-    const user = c.user_name || c.nick_name || '匿名';
+    const user = c.user_name || (c.user_info && c.user_info.user_name) || c.nick_name || '匿名';
+    const avatar = c.avatar_url || (c.user_info && (c.user_info.user_avatar || c.user_info.avatar_url)) || '';
     const text = c.content || c.text || '';
     const time = c.create_time || c.create_timestamp || 0;
     const digg = c.digg_count || 0;
-    const reply = c.reply_comment || c.child_comments || null;
-    html += `<div class="comment-item"><div class="comment-user">${escapeHtml(user)}</div><div class="comment-text">${escapeHtml(text)}</div><div class="comment-time">${time?formatTime(time):''} ${digg>0?'· 👍 '+digg:''}</div>`;
+    const reply = c.reply_list || c.reply_comment || c.child_comments || null;
+    html += `<div class="comment-item">`;
+    if (avatar) html += `<img class="comment-avatar" src="${escapeHtml(avatar)}" alt="" onerror="this.style.display='none'">`;
+    else html += `<div class="comment-avatar comment-avatar-ph">${escapeHtml((user||'匿')[0])}</div>`;
+    html += `<div class="comment-body"><div class="comment-user">${escapeHtml(user)}</div><div class="comment-text">${escapeHtml(text)}</div><div class="comment-time">${time?formatTime(time):''} ${digg>0?'· 👍 '+digg:''}</div>`;
     if (reply && Array.isArray(reply) && reply.length > 0) {
       html += '<div class="comment-reply">';
-      for (const rc of reply.slice(0,3)) html += `<div class="comment-item"><div class="comment-user">${escapeHtml(rc.user_name||rc.nick_name||'匿名')}</div><div class="comment-text">${escapeHtml(rc.content||rc.text||'')}</div></div>`;
+      for (const rc of reply.slice(0,3)) {
+        const ru = rc.user_name || (rc.user_info && rc.user_info.user_name) || rc.nick_name || '匿名';
+        const rt = rc.content || rc.text || '';
+        html += `<div class="comment-item reply-item"><span class="reply-user">${escapeHtml(ru)}</span>: ${escapeHtml(rt)}</div>`;
+      }
       html += '</div>';
     }
-    html += '</div>';
+    html += `</div></div>`;
   }
   return html;
 }

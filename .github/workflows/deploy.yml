@@ -63,19 +63,25 @@ jobs:
               echo "unidbg JAR exists ($(ls -lh $UNIDBG_JAR | awk '{print $5}'))"
             fi
             
-            # Stop any existing unidbg process
-            OLD_PID=$(pgrep -f "unidbg-boot-server.jar" || true)
-            if [ -n "$OLD_PID" ]; then
-              echo "Stopping old unidbg PID: $OLD_PID"
-              kill $OLD_PID 2>/dev/null || true
-              sleep 3
+            # Stop any existing unidbg process (read PID from pidfile, avoid matching current shell)
+            PID_FILE="$UNIDBG_DIR/unidbg.pid"
+            if [ -f "$PID_FILE" ]; then
+              OLD_PID=$(cat "$PID_FILE")
+              if [ -n "$OLD_PID" ] && kill -0 "$OLD_PID" 2>/dev/null; then
+                echo "Stopping old unidbg PID: $OLD_PID"
+                kill "$OLD_PID" 2>/dev/null || true
+                sleep 3
+              fi
+              rm -f "$PID_FILE"
             fi
             
             # Start unidbg in background with memory limits
             echo "Starting unidbg..."
             cd "$UNIDBG_DIR"
             nohup "$JAVA_BIN" -Xms64m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -jar "$UNIDBG_JAR" > "$UNIDBG_DIR/unidbg.log" 2>&1 &
-            echo "unidbg PID: $!"
+            UNIDBG_PID=$!
+            echo $UNIDBG_PID > "$PID_FILE"
+            echo "unidbg PID: $UNIDBG_PID (saved to $PID_FILE)"
             disown
             
             # Wait for services to start (unidbg needs ~60-90s to initialize ARM emulation)

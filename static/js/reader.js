@@ -736,17 +736,16 @@ function setupPgGestures() {
       const viewport = $('pageViewport');
       dragCurrentPage = viewport ? viewport.querySelector(`.page-page[data-page="${pg.curPage}"]`) : null;
       // Show adjacent pages so they're visible behind the current one during drag
-      if (viewport && dragCurrentPage) {
+      if (getReadMode() !== 'no-anim' && viewport && dragCurrentPage) {
         const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
         const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
         if (prev) { prev.style.display = ''; prev.style.transform = 'translateX(-100%)'; }
         if (next) { next.style.display = ''; next.style.transform = 'translateX(100%)'; }
       }
     }
-    if (pg.swipeActive && dragCurrentPage) {
+    if (getReadMode() !== 'no-anim' && pg.swipeActive && dragCurrentPage) {
       dragCurrentPage.style.transition = 'none';
       dragCurrentPage.style.transform = `translateX(${dx}px)`;
-      // Move adjacent page to follow the drag
       const cw = container.clientWidth;
       const prev = $('pageViewport')?.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
       const next = $('pageViewport')?.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);

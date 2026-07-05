@@ -1,11 +1,11 @@
 # fqnovel-unidbg runtime image (mtongle/fqnovel-unidbg v0.0.4)
-# Alpine-based JRE for minimal disk/memory footprint (works on 1C1G VPS)
+# Alpine-based JRE with required native libs (libstdc++) for unidbg/JNA
 FROM eclipse-temurin:11-jre-alpine
 
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# Install required native libraries for JNA/unidbg + curl for healthcheck
+RUN apk add --no-cache curl libstdc++ libgcc
 
 # Copy pre-downloaded JAR (downloaded by deploy script)
 COPY unidbg-boot-server.jar /app/app.jar

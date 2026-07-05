@@ -380,12 +380,14 @@ function pgCalculatePages() {
   
   // Split paragraphs into pages
   const maxH = measurer.clientHeight;
+  console.log('[pgCalc] ch=' + ch + ' maxH=' + maxH + ' scrollH=' + measurer.scrollHeight + ' padTop=' + getComputedStyle(measurer).paddingTop + ' padBot=' + getComputedStyle(measurer).paddingBottom);
   const pages = [];
   let currentPage = '';
   
   for (const ph of paraHtmls) {
     measurer.innerHTML = currentPage + ph;
     if (measurer.scrollHeight > maxH && currentPage !== '') {
+      console.log('[pgCalc] overflow: scrollH=' + measurer.scrollHeight + ' > maxH=' + maxH + ', splitting');
       pages.push(currentPage);
       currentPage = ph;
       measurer.innerHTML = ph;

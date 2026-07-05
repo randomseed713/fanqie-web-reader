@@ -1,17 +1,15 @@
 # fqnovel-unidbg runtime image (mtongle/fqnovel-unidbg v0.0.4)
-# Uses pre-built JAR from GitHub Releases (no Maven build needed, works on 1C1G VPS)
+# JAR is downloaded at deploy time and copied in, no build-time network needed
 FROM eclipse-temurin:11-jre-noble
 
 WORKDIR /app
 
-# Install curl for healthcheck + wget for downloading JAR
-RUN apt-get update && apt-get install -y --no-install-recommends curl wget ca-certificates && \
+# Install curl for healthcheck
+RUN apt-get update && apt-get install -y --no-install-recommends curl && \
     rm -rf /var/lib/apt/lists/*
 
-# Download pre-built JAR from GitHub Releases (v0.0.4, 352MB)
-ARG JAR_URL=https://github.com/mtongle/fqnovel-unidbg/releases/download/v0.0.4/unidbg-boot-server-0.0.4.jar
-RUN wget -q --no-check-certificate -O /app/app.jar "$JAR_URL" && \
-    ls -la /app/app.jar
+# Copy pre-downloaded JAR (downloaded by deploy script)
+COPY unidbg-boot-server.jar /app/app.jar
 
 EXPOSE 8099
 

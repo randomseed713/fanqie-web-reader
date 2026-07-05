@@ -35,12 +35,21 @@ jobs:
             docker compose up -d fanqie-web-reader
             
             # Try to build and start unidbg (don't fail if it breaks)
-            echo "Building unidbg..."
-            if docker compose build --no-cache unidbg 2>&1; then
-              echo "Starting unidbg..."
-              docker compose up -d unidbg
+            # First download JAR on host (better network than docker build)
+            echo "Downloading unidbg JAR..."
+            JAR_URL="https://github.com/mtongle/fqnovel-unidbg/releases/download/v0.0.4/unidbg-boot-server-0.0.4.jar"
+            if curl -fsSL -o unidbg/unidbg-boot-server.jar "$JAR_URL" 2>&1; then
+              echo "JAR downloaded successfully ($(ls -lh unidbg/unidbg-boot-server.jar | awk '{print $5}'))"
+              echo "Building unidbg..."
+              if docker compose build --no-cache unidbg 2>&1; then
+                echo "Starting unidbg..."
+                docker compose up -d unidbg
+              else
+                echo "WARNING: unidbg Docker build failed"
+              fi
             else
-              echo "WARNING: unidbg build failed, paragraph comments will be unavailable"
+              echo "WARNING: Failed to download unidbg JAR, paragraph comments will be unavailable"
+              rm -f unidbg/unidbg-boot-server.jar
             fi
             
             # Wait for services to start
@@ -52,14 +61,15 @@ jobs:
             docker compose ps
             echo "--- Health check ---"
             curl -s -o /dev/null -w "Web reader HTTP %{http_code}\n" http://127.0.0.1:8199/ || echo "Web reader not ready"
-            for i in 1 2 3; do
+            for i in 1 2 3 4 5; do
               UNIDBG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "000")
               echo "Unidbg health (attempt $i): $UNIDBG_STATUS"
               if [ "$UNIDBG_STATUS" = "200" ]; then break; fi
               sleep 15
             done
             
-            # Clean up old images
+            # Clean up old images and temp JAR
+            rm -f unidbg/unidbg-boot-server.jar
             docker image prune -f
             
             echo "Deployment completed successfully!"

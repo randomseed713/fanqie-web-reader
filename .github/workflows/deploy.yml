@@ -21,16 +21,28 @@ jobs:
           script: |
             cd /projects/fanqie-web-reader
             
-            # Pull latest code
-            git pull origin main
+            # Reset any local changes and pull latest code
+            git fetch origin main
+            git reset --hard origin/main
+            echo "Current commit: $(git rev-parse --short HEAD)"
             
             # Pull pre-built images (unidbg)
             docker compose pull
             
-            # Rebuild and restart containers
-            docker compose down
+            # Rebuild and restart containers (force recreate)
+            docker compose down --remove-orphans
             docker compose build --no-cache
-            docker compose up -d
+            docker compose up -d --force-recreate
+            
+            # Wait a moment for service to start
+            sleep 3
+            
+            # Verify deployment
+            echo "--- Running containers ---"
+            docker compose ps
+            echo "--- Version check ---"
+            curl -s http://127.0.0.1:8199/ | head -c 200
+            echo ""
             
             # Clean up old images
             docker image prune -f

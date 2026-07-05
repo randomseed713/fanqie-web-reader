@@ -529,6 +529,11 @@ async function pgSwitchChapter(newIdx, startPageHint) {
   // Determine target page
   const targetPage = (startPageHint === -1) ? pg.totalPages - 1 : 0;
 
+  // Hide all new pages except the target
+  viewport.querySelectorAll('.page-page').forEach(p => {
+    p.style.display = p.dataset.page == targetPage ? '' : 'none';
+  });
+
   // Animate: old page slides out, new page slides in
   const newPageEl = viewport.querySelector(`.page-page[data-page="${targetPage}"]`);
   if (oldPageEl && newPageEl && oldPageEl.parentNode !== viewport) {

@@ -111,8 +111,10 @@ function renderScrollReader(app, bid, idx) {
           <button class="bg-swatch swatch-green${dt==='green'?' active':''}" onclick="applyThemeFrom(event,'green')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
           <button class="bg-swatch swatch-dark${dt==='dark'?' active':''}" onclick="applyThemeFrom(event,'dark')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
         </div>
-        <span class="settings-label" style="margin-left:auto">模式</span>
-        <div class="settings-chips" style="flex:0;flex-wrap:wrap;justify-content:flex-end">
+      </div>
+      <div class="settings-row">
+        <span class="settings-label">模式</span>
+        <div class="settings-chips">
           ${READ_MODES.map(m => `<button class="settings-chip${curMode===m.id?' active':''}" onclick="switchReadMode('${m.id}')">${m.label}</button>`).join('')}
         </div>
       </div>
@@ -283,8 +285,10 @@ function renderPageReader(app, bid, idx) {
                 <button class="bg-swatch swatch-green${dt==='green'?' active':''}" onclick="applyThemeFrom(event,'green')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
                 <button class="bg-swatch swatch-dark${dt==='dark'?' active':''}" onclick="applyThemeFrom(event,'dark')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
               </div>
-              <span class="settings-label" style="margin-left:auto">模式</span>
-              <div class="settings-chips" style="flex:0;flex-wrap:wrap;justify-content:flex-end">
+            </div>
+            <div class="settings-row">
+              <span class="settings-label">模式</span>
+              <div class="settings-chips">
                 ${READ_MODES.map(m => `<button class="settings-chip${curMode===m.id?' active':''}" onclick="switchReadMode('${m.id}')">${m.label}</button>`).join('')}
               </div>
             </div>

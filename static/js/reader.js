@@ -358,27 +358,34 @@ function pgCalculatePages() {
   if (authorSpeak) paraHtmls.push(`<div class="author-speak"><i data-lucide="message-circle" width="14" height="14"></i> 作者说：${escapeHtml(authorSpeak)}</div>`);
   
   // Use a real .page-page element as measurer to guarantee layout consistency.
-  // This avoids any mismatch between manual style replication and actual CSS.
   const measurer = document.createElement('div');
   measurer.className = 'page-page';
-  // Measurer uses content-box so height = content area only (no padding).
-  // This way offsetHeight = content height + padding, and we compare against
-  // the actual page height (ch) which includes padding.
-  measurer.style.cssText = 'position:fixed;visibility:hidden;left:-9999px;top:0;width:' + cw + 'px;padding:24px 28px;box-sizing:content-box;overflow:hidden;font-size:var(--reader-font-size,17px);line-height:var(--reader-line-height,1.85);font-family:var(--reader-font-family,inherit);letter-spacing:0.02em;color:var(--reader-text);';
+  measurer.style.cssText = 'position:fixed;visibility:hidden;left:-9999px;top:0;width:' + cw + 'px;height:' + ch + 'px;inset:auto;overflow:hidden;';
   // Attach inside the reader so CSS variables are available
   const reader = $('paginatedReader');
   if (reader) reader.appendChild(measurer);
   else document.body.appendChild(measurer);
   
+  // With border-box + explicit height + overflow:hidden:
+  //   clientHeight = height = ch (no border)
+  //   scrollHeight = max(clientHeight, content_height + paddingTop + paddingBottom)
+  // When scrollHeight > clientHeight, content overflows the visible area.
+  // But we want to use the *content area* height (excluding padding) as threshold,
+  // because .page-page padding pushes content inward from the edges.
+  // scrollHeight > clientHeight means content+padding > ch, which is correct
+  // since padding is part of the page and content must fit inside it.
+  // The issue is scrollHeight already includes padding, so the comparison
+  // scrollHeight vs clientHeight correctly detects overflow when content
+  // pushes beyond the padded area.
+  
   // Split paragraphs into pages
-  // ch is the total page height (border-box). Measurer offsetHeight = content + padding.
-  // Content fits when offsetHeight <= ch.
+  const maxH = measurer.clientHeight;
   const pages = [];
   let currentPage = '';
   
   for (const ph of paraHtmls) {
     measurer.innerHTML = currentPage + ph;
-    if (measurer.offsetHeight > ch && currentPage !== '') {
+    if (measurer.scrollHeight > maxH && currentPage !== '') {
       pages.push(currentPage);
       currentPage = ph;
       measurer.innerHTML = ph;

@@ -138,7 +138,7 @@
 .page-page {
   position: absolute;
   inset: 0;
-  padding: 24px 28px;
+  padding: 12px 24px;
   overflow-y: auto;
   overflow-x: hidden;
   background: var(--reader-bg);

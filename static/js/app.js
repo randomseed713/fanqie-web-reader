@@ -95,6 +95,9 @@ function applyTheme(themeId) {
     } else {
       document.body.classList.add('theme-' + themeId);
       localStorage.setItem('readerTheme', themeId);
+      if (themeId !== 'dark' && themeId !== 'auto') {
+        localStorage.setItem('readerLightTheme', themeId);
+      }
     }
     const btn = $('themeBtn');
     if (btn) {
@@ -122,14 +125,12 @@ function applyTheme(themeId) {
     doApply();
   }
 }
-function toggleTheme() {
+function toggleTheme(e) {
+  if (e) { _themeClickX = e.clientX; _themeClickY = e.clientY; }
   const cur = getTheme();
-  const ALL = ['auto', ...THEMES.map(t => t.id)];
-  const idx = ALL.indexOf(cur);
-  const next = ALL[(idx + 1) % ALL.length];
-  applyTheme(next);
-  const label = $('themeLabel');
-  if (label) label.textContent = next === 'auto' ? '自动' : (THEMES.find(t => t.id === next) || THEMES[0]).name;
+  const isDark = cur === 'dark' || (cur === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  const lightTheme = localStorage.getItem('readerLightTheme') || 'default';
+  applyTheme(isDark ? lightTheme : 'dark');
 }
 
 // ---- Font family ----

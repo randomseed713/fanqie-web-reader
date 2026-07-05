@@ -152,7 +152,7 @@ route('comments', async (q, app) => {
 
 // ====== Search logic ======
 function renderTabs() {
-  $('searchTabs').innerHTML = TABS.map(t => `<button class="search-tab${S.tab===t.id?' active':''}" onclick="selectTab(${t.id})">${t.name}</button>`).join('');
+  $('searchTabs').innerHTML = TABS.map(t => `<button class="search-tab${S.tab===t.id?' active':''}${t.id!==3?' disabled':''}" ${t.id!==3?'disabled':''} onclick="selectTab(${t.id})">${t.name}</button>`).join('');
 }
 function selectTab(id) {
   S.tab = id; renderTabs();

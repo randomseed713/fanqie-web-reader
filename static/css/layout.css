@@ -32,6 +32,7 @@
 .search-tabs::-webkit-scrollbar { display: none; }
 .search-tab { padding: 6px 16px; border: none; background: var(--badge-bg); color: var(--text-secondary); border-radius: 16px; font-size: 13px; cursor: pointer; white-space: nowrap; transition: all 0.2s; }
 .search-tab.active { background: var(--accent); color: #fff; }
+.search-tab.disabled { opacity: 0.4; cursor: not-allowed; pointer-events: none; }
 
 /* Layout */
 .container { max-width: 720px; margin: 0 auto; padding: 0 14px 30px; }

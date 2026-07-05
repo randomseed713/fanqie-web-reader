@@ -9,6 +9,8 @@ services:
     environment:
       - PARA_COMMENT_MOCK=false
       - UNIDBG_API=http://172.17.0.1:8099
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8199/', timeout=5)"]

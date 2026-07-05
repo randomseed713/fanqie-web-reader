@@ -189,10 +189,9 @@ function changeLineHeightTo(lh) {
 
 // ---- Read mode ----
 const READ_MODES = [
-  { id: 'page', label: '翻页' },
-  { id: 'scroll', label: '滚动' },
+  { id: 'page', label: '左右平移' },
+  { id: 'scroll', label: '上下滚动' },
   { id: 'no-anim', label: '无动画' },
-  { id: 'simulation', label: '仿真' },
 ];
 function getReadMode() { return localStorage.getItem('readMode') || 'page'; }
 function setReadMode(mode) { localStorage.setItem('readMode', mode); }

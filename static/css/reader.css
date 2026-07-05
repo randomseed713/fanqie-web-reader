@@ -137,7 +137,10 @@
 /* Single page styling */
 .page-page {
   position: absolute;
-  inset: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   padding: 12px 24px;
   overflow-y: auto;
   overflow-x: hidden;
@@ -234,17 +237,4 @@
   width: 22px; height: 22px; border-radius: 50%; border: none;
   background: var(--accent); cursor: pointer;
 }
-.page-toolbar-bottom .slider-row .slider-label { font-size: 13px; color: var(--text-muted); white-space: nowrap; min-width: 50px; text-align: center; font-variant-numeric: tabular-nums; }
-
-/* ==================== Simulation 3D Flip ==================== */
-.page-container.sim-flip { perspective: 1500px; }
-.page-page.sim-flipping {
-  backface-visibility: hidden;
-  transform-origin: left center;
-  will-change: transform;
-}
-.page-page.sim-flipping-reverse { transform-origin: right center; }
-.page-page.sim-flip-shadow {
-  box-shadow: 20px 0 40px rgba(0,0,0,0.2);
-  transition: box-shadow 0.2s ease;
-}
+  .page-toolbar-bottom .slider-row .slider-label { font-size: 13px; color: var(--text-muted); white-space: nowrap; min-width: 50px; text-align: center; font-variant-numeric: tabular-nums; }

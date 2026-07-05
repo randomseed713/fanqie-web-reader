@@ -34,7 +34,7 @@ app.add_middleware(
 
 COMMUNITY_API = "http://101.35.133.34:5000"
 FANQIE_API = "https://api5-normal-sinfonlinec.fqnovel.com"
-UNIDBG_API = os.environ.get("UNIDBG_API", "http://unidbg:8099")  # docker-compose internal
+UNIDBG_API = os.environ.get("UNIDBG_API", "http://127.0.0.1:8099")  # unidbg signing proxy
 PARA_COMMENT_MOCK = os.environ.get("PARA_COMMENT_MOCK", "true").lower() in ("true", "1", "yes")
 
 client: httpx.AsyncClient = httpx.AsyncClient(

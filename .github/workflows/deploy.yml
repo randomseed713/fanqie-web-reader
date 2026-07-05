@@ -26,22 +26,25 @@ jobs:
             git reset --hard origin/main
             echo "Current commit: $(git rev-parse --short HEAD)"
             
-            # Pull pre-built images (unidbg)
-            docker compose pull
+            # Pull pre-built images (unidbg is optional, don't fail if blocked)
+            docker compose pull unidbg 2>/dev/null || echo "unidbg image pull skipped (ghcr.io may be blocked)"
             
-            # Rebuild and restart containers (force recreate)
+            # Start unidbg if available, ignore failure
+            docker compose up -d unidbg 2>/dev/null || echo "unidbg not started (optional)"
+            
+            # Rebuild and restart main service
             docker compose down --remove-orphans
-            docker compose build --no-cache
-            docker compose up -d --force-recreate
+            docker compose build --no-cache fanqie-web-reader
+            docker compose up -d fanqie-web-reader
             
             # Wait a moment for service to start
-            sleep 3
+            sleep 5
             
             # Verify deployment
             echo "--- Running containers ---"
             docker compose ps
-            echo "--- Version check ---"
-            curl -s http://127.0.0.1:8199/ | head -c 200
+            echo "--- Health check ---"
+            curl -s -o /dev/null -w "HTTP %{http_code}" http://127.0.0.1:8199/
             echo ""
             
             # Clean up old images

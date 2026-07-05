@@ -345,13 +345,25 @@ async def paragraph_comment_counts(request_body: dict = Body(default={})):
         r = await _fanqie_client.post(
             f"{UNIDBG_API}/api/fqcomment/idea",
             json={"chapterId": chapter_id, "commentSource": 2, "serverChannel": 17},
+            timeout=15.0,
         )
         data = r.json()
+        print(f"DEBUG paragraph_comment_counts raw response (first 500 chars): {json.dumps(data, ensure_ascii=False)[:500]}")
         counts = _extract_para_counts(data)
         return {"code": 200, "data": counts, "msg": "success"}
     except Exception as e:
-        print(f"DEBUG paragraph_comment_counts ERROR: {e}")
+        print(f"DEBUG paragraph_comment_counts ERROR: {type(e).__name__}: {e}")
     return {"code": 200, "data": {}, "msg": "no data"}
+
+
+@app.get("/api/debug/unidbg")
+async def debug_unidbg():
+    """Debug endpoint to test unidbg connectivity."""
+    try:
+        r = await _fanqie_client.get(f"{UNIDBG_API}/", timeout=5.0)
+        return {"status": "ok", "unidbg_api": UNIDBG_API, "status_code": r.status_code, "body_preview": r.text[:200]}
+    except Exception as e:
+        return {"status": "error", "unidbg_api": UNIDBG_API, "error": f"{type(e).__name__}: {e}"}
 
 
 def _mock_para_counts(chapter_id: str) -> dict:

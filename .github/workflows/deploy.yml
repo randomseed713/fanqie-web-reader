@@ -26,6 +26,12 @@ jobs:
             git reset --hard origin/main
             echo "Current commit: $(git rev-parse --short HEAD)"
             
+            # Free up disk space first (critical for 1C1G VPS)
+            echo "Cleaning Docker cache and old images..."
+            docker system prune -af --volumes 2>/dev/null || true
+            docker builder prune -af 2>/dev/null || true
+            df -h / | tail -1
+            
             # Stop existing containers
             docker compose down --remove-orphans
             

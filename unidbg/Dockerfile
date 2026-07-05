@@ -1,12 +1,11 @@
 # fqnovel-unidbg runtime image (mtongle/fqnovel-unidbg v0.0.4)
-# JAR is downloaded at deploy time and copied in, no build-time network needed
-FROM eclipse-temurin:11-jre-noble
+# Alpine-based JRE for minimal disk/memory footprint (works on 1C1G VPS)
+FROM eclipse-temurin:11-jre-alpine
 
 WORKDIR /app
 
 # Install curl for healthcheck
-RUN apt-get update && apt-get install -y --no-install-recommends curl && \
-    rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache curl
 
 # Copy pre-downloaded JAR (downloaded by deploy script)
 COPY unidbg-boot-server.jar /app/app.jar

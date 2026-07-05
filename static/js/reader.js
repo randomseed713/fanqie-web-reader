@@ -480,23 +480,29 @@ function pagePrev() {
   else if (pg.idx > 0) pgSwitchChapter(pg.idx - 1, -1);
 }
 async function pgSwitchChapter(newIdx, startPageHint) {
+  if (pg.animating) return;
   const d = cache.detail[pg.bid];
   if (!d || newIdx < 0 || newIdx >= d.chapters.length) return;
+
+  const dir = newIdx > pg.idx ? 1 : -1;
+  const viewport = $('pageViewport');
+  if (!viewport) return;
+
+  // Grab the current page element for animation
+  const oldPageEl = viewport.querySelector(`.page-page[data-page="${pg.curPage}"]`);
+
   const chapterId = d.chapters[newIdx].ChapterID;
-  // Ensure content is loaded (may need fetch)
+  // Ensure content is loaded
   if (!getContentCache(chapterId)) {
-    // Show a brief loading indicator on current page
-    const viewport = $('pageViewport');
-    if (viewport) {
-      const loader = document.createElement('div');
-      loader.className = 'page-page';
-      loader.style.cssText = 'display:flex;align-items:center;justify-content:center;color:var(--text-muted);font-size:14px;';
-      loader.innerHTML = '加载中...';
-      viewport.appendChild(loader);
+    if (oldPageEl) {
+      oldPageEl.style.opacity = '0.5';
+      oldPageEl.style.pointerEvents = 'none';
     }
     await fetchContent(chapterId);
-    // Remove loader
-    if (viewport) { const l = viewport.lastElementChild; if (l && l !== viewport.querySelector(`.page-page[data-page="${pg.curPage}"]`)) l.remove(); }
+    if (oldPageEl) {
+      oldPageEl.style.opacity = '';
+      oldPageEl.style.pointerEvents = '';
+    }
   }
   const c = getContentCache(chapterId);
   if (!c || !c.paragraphs.length) return;
@@ -509,23 +515,50 @@ async function pgSwitchChapter(newIdx, startPageHint) {
   const chapterTitle = d.chapters[newIdx].Name || `第${newIdx+1}章`;
   saveReaderProgress(pg.bid, newIdx, chapterId, chapterTitle, pg.total);
 
-  // Update header chapter name
+  // Update header & footer
   const headerName = document.querySelector('.page-header .chapter-name');
   if (headerName) headerName.textContent = chapterTitle;
   const toolbarName = document.querySelector('.page-toolbar-top .chapter-name');
   if (toolbarName) toolbarName.textContent = chapterTitle;
-
-  // Update footer
   const footerLeft = document.querySelector('.page-footer-left');
   if (footerLeft) footerLeft.innerHTML = `<span>${escapeHtml(d.bookName)}</span><span>·</span><span>第${newIdx+1}/${pg.total}章</span>`;
 
-  // Recalculate pages for new chapter
+  // Recalculate pages — this rebuilds viewport children
   pgCalculatePages();
 
-  // Jump to last page if going back, first page if going forward
-  if (startPageHint === -1 && pg.totalPages > 1) {
-    pgGoToPage(pg.totalPages - 1, false);
+  // Determine target page
+  const targetPage = (startPageHint === -1) ? pg.totalPages - 1 : 0;
+
+  // Animate: old page slides out, new page slides in
+  const newPageEl = viewport.querySelector(`.page-page[data-page="${targetPage}"]`);
+  if (oldPageEl && newPageEl && oldPageEl.parentNode !== viewport) {
+    // oldPageEl was removed by pgCalculatePages — re-add it for animation
+    oldPageEl.style.display = '';
+    oldPageEl.style.position = 'absolute';
+    oldPageEl.style.inset = '0';
+    viewport.insertBefore(oldPageEl, viewport.firstChild);
+
+    pg.animating = true;
+    newPageEl.style.display = '';
+    newPageEl.style.transform = `translateX(${dir * 100}%)`;
+    newPageEl.style.transition = 'none';
+    oldPageEl.offsetHeight; // force reflow
+
+    newPageEl.style.transition = 'transform 0.3s ease';
+    oldPageEl.style.transition = 'transform 0.3s ease';
+    oldPageEl.style.transform = `translateX(${-dir * 100}%)`;
+    newPageEl.style.transform = 'translateX(0)';
+
+    setTimeout(() => {
+      oldPageEl.remove();
+      newPageEl.style.transform = '';
+      newPageEl.style.transition = '';
+      pg.animating = false;
+    }, 320);
   }
+
+  pg.curPage = targetPage;
+  pgUpdateUI();
 
   // Update URL without full re-render
   const newHash = `reader?book_id=${pg.bid}&chapter_idx=${newIdx}`;

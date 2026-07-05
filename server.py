@@ -57,44 +57,10 @@ async def search(key: str = Query(...), tab_type: int = 3, offset: int = 0):
             raw = data.get("data", {})
             if isinstance(raw, dict):
                 tabs = raw.get("search_tabs", [])
-                books = []
-                has_more = False
-                for tab in tabs:
-                    if not tab or not isinstance(tab, dict):
-                        continue
-                    if tab.get("has_more"):
-                        has_more = True
-                    items = tab.get("data", [])
-                    if not items:
-                        continue
-                    for item in items:
-                        if not item or not isinstance(item, dict):
-                            continue
-                        bd_raw = item.get("book_data")
-                        if not bd_raw or not isinstance(bd_raw, list):
-                            continue
-                        bd = bd_raw[0] if bd_raw else {}
-                        if not bd or not isinstance(bd, dict):
-                            continue
-                        bid = bd.get("book_id", "")
-                        if bid:
-                            stat = bd.get("creation_status", "")
-                            status_map = {"1": "连载中", "0": "已完结"}
-                books.append({
-                    "BookID": bid,
-                    "Name": bd.get("book_name", ""),
-                    "ShortName": bd.get("book_short_name", ""),
-                    "Author": bd.get("author", ""),
-                                "Desc": bd.get("abstract", ""),
-                                "ThumbUrl": bd.get("thumb_url", bd.get("audio_thumb_uri", "")),
-                                "ChapterCount": bd.get("chapter_number", ""),
-                                "Category": bd.get("category", ""),
-                                "Score": bd.get("score", ""),
-                                "WordCount": bd.get("word_number", 0),
-                                "Status": status_map.get(str(stat), ""),
-                                "Tags": bd.get("tags", ""),
-                                "ReadCount": bd.get("read_count", 0),
-                            })
+                has_more = any(
+                    t.get("has_more") for t in tabs if isinstance(t, dict)
+                )
+                books = _extract_books_from_tabs(tabs)
                 if books:
                     return {"code": 200, "data": books, "has_more": has_more, "msg": "success"}
     except Exception as e:

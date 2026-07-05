@@ -77,10 +77,12 @@ function initTheme() {
 }
 function applyTheme(themeId) {
   document.body.classList.remove('theme-default', 'theme-sepia', 'theme-green', 'theme-dark');
+  let appliedId = themeId;
   if (themeId === 'auto') {
     const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     document.body.classList.add(sysDark ? 'theme-dark' : 'theme-default');
     localStorage.setItem('readerTheme', 'auto');
+    appliedId = sysDark ? 'dark' : 'default';
   } else {
     document.body.classList.add('theme-' + themeId);
     localStorage.setItem('readerTheme', themeId);
@@ -91,6 +93,10 @@ function applyTheme(themeId) {
     btn.innerHTML = `<i data-lucide="${iconName}" width="16" height="16"></i>`;
     lucide.createIcons({ nodes: [btn] });
   }
+  // Update swatch active states in reader toolbars
+  document.querySelectorAll('.bg-swatch').forEach(s => {
+    s.classList.toggle('active', s.classList.contains('swatch-' + appliedId));
+  });
 }
 function toggleTheme() {
   const cur = getTheme();

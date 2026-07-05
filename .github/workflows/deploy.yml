@@ -29,7 +29,16 @@ jobs:
             # Stop existing containers
             docker compose down --remove-orphans
             
-            # Rebuild both services (unidbg from source, web reader from local)
+            # Ensure enough swap for maven build (1GB)
+            if [ ! -f /tmp/swapfile1g ]; then
+              echo "Creating 1GB swap file for build..."
+              fallocate -l 1G /tmp/swapfile1g 2>/dev/null || dd if=/dev/zero of=/tmp/swapfile1g bs=1M count=1024
+              chmod 600 /tmp/swapfile1g
+              mkswap /tmp/swapfile1g
+            fi
+            swapon /tmp/swapfile1g 2>/dev/null || true
+            
+            # Rebuild both services
             echo "Building services..."
             docker compose build --no-cache
             
@@ -38,7 +47,7 @@ jobs:
             
             # Wait for services to start (unidbg needs time to initialize unidbg VM)
             echo "Waiting for services to start..."
-            sleep 30
+            sleep 45
             
             # Verify deployment
             echo "--- Running containers ---"
@@ -47,6 +56,9 @@ jobs:
             curl -s -o /dev/null -w "Web reader HTTP %{http_code}\n" http://127.0.0.1:8199/ || echo "Web reader not ready"
             UNIDBG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "unreachable")
             echo "Unidbg health: $UNIDBG_STATUS"
+            
+            # Turn off swap after build
+            swapoff /tmp/swapfile1g 2>/dev/null || true
             
             # Clean up old images
             docker image prune -f

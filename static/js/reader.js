@@ -361,26 +361,24 @@ function pgCalculatePages() {
   // This avoids any mismatch between manual style replication and actual CSS.
   const measurer = document.createElement('div');
   measurer.className = 'page-page';
-  measurer.style.cssText = 'position:fixed;visibility:hidden;left:-9999px;top:0;width:' + cw + 'px;height:' + ch + 'px;inset:auto;overflow:visible;';
+  // Measurer uses content-box so height = content area only (no padding).
+  // This way offsetHeight = content height + padding, and we compare against
+  // the actual page height (ch) which includes padding.
+  measurer.style.cssText = 'position:fixed;visibility:hidden;left:-9999px;top:0;width:' + cw + 'px;padding:24px 28px;box-sizing:content-box;overflow:hidden;font-size:var(--reader-font-size,17px);line-height:var(--reader-line-height,1.85);font-family:var(--reader-font-family,inherit);letter-spacing:0.02em;color:var(--reader-text);';
   // Attach inside the reader so CSS variables are available
   const reader = $('paginatedReader');
   if (reader) reader.appendChild(measurer);
   else document.body.appendChild(measurer);
   
-  // With overflow:visible, scrollHeight = actual content height (no padding included).
-  // Content area height = clientHeight - paddingTop - paddingBottom.
-  const computedStyle = getComputedStyle(measurer);
-  const padTop = parseFloat(computedStyle.paddingTop) || 0;
-  const padBot = parseFloat(computedStyle.paddingBottom) || 0;
-  const contentH = measurer.clientHeight - padTop - padBot;
-  
   // Split paragraphs into pages
+  // ch is the total page height (border-box). Measurer offsetHeight = content + padding.
+  // Content fits when offsetHeight <= ch.
   const pages = [];
   let currentPage = '';
   
   for (const ph of paraHtmls) {
     measurer.innerHTML = currentPage + ph;
-    if (measurer.scrollHeight > contentH && currentPage !== '') {
+    if (measurer.offsetHeight > ch && currentPage !== '') {
       pages.push(currentPage);
       currentPage = ph;
       measurer.innerHTML = ph;

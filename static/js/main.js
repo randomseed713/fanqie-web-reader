@@ -109,6 +109,7 @@ route('author', async (q, app) => {
   const name = q.name || '';
   if (!authorId && !name) { navigate('search'); return; }
   $('pageTitle').textContent = name || '作者';
+  app.innerHTML = skeletonAuthor();
   renderAuthorPage(app, authorId, name);
 });
 
@@ -116,14 +117,14 @@ route('detail', async (q, app) => {
   const bid = q.book_id;
   $('pageTitle').textContent = '加载中...';
   if (cache.detail[bid]) renderDetail(app, bid);
-  else { app.innerHTML = skeletonHtml(3); await fetchDetail(bid); renderDetail(app, bid); }
+  else { app.innerHTML = skeletonDetail(); await fetchDetail(bid); renderDetail(app, bid); }
 });
 
 route('reader', async (q, app) => {
   const bid = q.book_id;
   let idx = parseInt(q.chapter_idx || '0');
   $('pageTitle').textContent = '加载中...';
-  if (!cache.detail[bid]) { app.innerHTML = skeletonHtml(2); await fetchDetail(bid); }
+  if (!cache.detail[bid]) { app.innerHTML = skeletonDetail(); await fetchDetail(bid); }
   const d = cache.detail[bid];
   if (!d || !d.chapters.length) { app.innerHTML = errorHtml('加载失败', `reader?book_id=${bid}&chapter_idx=0`); return; }
   if (idx < 0 || idx >= d.chapters.length) idx = 0;
@@ -132,7 +133,7 @@ route('reader', async (q, app) => {
   appendedChapters = 0;
   const chapterId = d.chapters[idx].ChapterID;
   if (getContentCache(chapterId)) renderReader(app, bid, idx);
-  else { app.innerHTML = skeletonHtml(1); await fetchContent(chapterId); renderReader(app, bid, idx); }
+  else { app.innerHTML = skeletonReader(); await fetchContent(chapterId); renderReader(app, bid, idx); }
 });
 
 route('comments', async (q, app) => {
@@ -140,7 +141,7 @@ route('comments', async (q, app) => {
   $('pageTitle').textContent = '评论';
   if (cache.detail[bid] && cache.detail[bid].comments) renderComments(app, bid);
   else {
-    app.innerHTML = loadingHtml('加载评论...');
+    app.innerHTML = skeletonComments();
     if (!cache.detail[bid]) await fetchDetail(bid);
     await fetchComments(bid);
     renderComments(app, bid);

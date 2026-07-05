@@ -51,6 +51,7 @@ function renderResults(app) {
   app = app || $('app');
   const td = getTabData();
   if (td.books.length === 0 && !S.loading) { renderHome(app); return; }
+  if (td.books.length === 0 && S.loading) { app.innerHTML = skeletonResults(5); return; }
   const display = td.filtered.length > 0 ? td.filtered : td.books;
   const allTags = [...new Set(td.books.flatMap(b => (b.Tags||'').split(',').map(t=>t.trim()).filter(Boolean)))];
   let html = `<div class="search-controls view"><span class="search-result-info">${td.books.length} 条</span>`;

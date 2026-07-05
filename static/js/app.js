@@ -276,14 +276,202 @@ function showToast(msg) {
 }
 
 // ---- Skeleton ----
-function skeletonHtml(count) {
+
+// Generic shimmer helpers
+function skelLine(w, h) { return `<div class="skel-line" style="${h?'height:'+h+'px;':''}${w?'margin-right:'+w+'%;':''}"></div>`; }
+function skelCircle(size) { return `<div class="skel-circle" style="width:${size}px;height:${size}px"></div>`; }
+function skelPill(w) { return `<div class="skel-pill" style="width:${w}px"></div>`; }
+
+// 1. Home page skeleton (discover + continue reading)
+function skeletonHome() {
+  let h = '';
+  // Continue reading card
+  h += `<div class="skel-continue-card">
+    <div class="skel-continue-info">
+      ${skelLine(60,10)}
+      ${skelLine(30,16)}
+      ${skelLine(40,12)}
+    </div>
+    <div class="skel-circle" style="width:52px;height:52px;flex-shrink:0"></div>
+    <div class="skel-continue-chev"></div>
+  </div>`;
+  // Discover welcome
+  h += `<div class="skel-discover">
+    <div class="skel-discover-welcome">
+      <div class="skel-discover-emoji">📚</div>
+      <div class="skel-line" style="height:20px;margin-right:60%"></div>
+      <div class="skel-line" style="height:14px;margin-right:40%"></div>
+    </div>
+    <div class="skel-discover-section">
+      <div class="skel-line" style="height:14px;margin-right:60%;margin-bottom:12px"></div>
+      <div class="skel-discover-tags">
+        ${[82,90,72,84,78].map(w => `<div class="skel-pill" style="width:${w}px;height:32px"></div>`).join('')}
+      </div>
+    </div>
+    <div class="skel-discover-section">
+      <div class="skel-line" style="height:14px;margin-right:60%;margin-bottom:12px"></div>
+      <div class="skel-discover-grid">
+        ${[0,1,2,3].map(() => `<div class="skel-discover-card"><div class="skel-discover-card-icon"></div><div class="skel-discover-card-name"></div></div>`).join('')}
+      </div>
+    </div>
+    <div class="skel-discover-tip">
+      <div class="skel-line" style="height:14px;margin-right:50%"></div>
+    </div>
+  </div>`;
+  return h;
+}
+
+// 2. Search results skeleton (book cards list)
+function skeletonResults(count) {
   let h = '<div class="skeleton-list">';
-  for (let i = 0; i < (count||5); i++) {
-    h += '<div class="skeleton-card"><div class="skeleton-cover"></div><div class="skeleton-info"><div class="skeleton-line w80"></div><div class="skeleton-line w50"></div><div class="skeleton-line w90"></div><div class="skeleton-line w60"></div></div></div>';
+  // Search controls row
+  h += `<div class="skel-search-controls">
+    <div class="skel-line" style="height:12px;margin-right:70%"></div>
+    ${[56,48,50,56].map(w => `<div class="skel-pill" style="width:${w}px;height:26px"></div>`).join('')}
+  </div>`;
+  for (let i = 0; i < (count || 5); i++) {
+    h += `<div class="skeleton-card">
+      <div class="skeleton-cover"></div>
+      <div class="skeleton-info">
+        <div class="skel-title-row"><div class="skel-line" style="margin-right:25%"></div><div class="skel-status-badge"></div></div>
+        ${skelLine(50,11)}
+        <div class="skel-line" style="height:11px;margin-right:8%"></div>
+        <div class="skel-line" style="height:11px;margin-right:55%"></div>
+        <div class="skel-meta-row"><div class="skel-tag-pill"></div>${skelLine(60,10)}${skelLine(65,10)}</div>
+      </div>
+    </div>`;
   }
   h += '</div>';
   return h;
 }
+
+// 3. Book detail skeleton
+function skeletonDetail() {
+  let h = '<div class="skel-detail">';
+  // Detail header
+  h += `<div class="skel-detail-header">
+    <div class="skel-cover-lg"></div>
+    <div class="skel-detail-info">
+      <div class="skel-line skel-detail-title-line" style="margin-right:15%"></div>
+      <div class="skel-line skel-detail-alias-line" style="margin-right:35%"></div>
+      <div class="skel-line skel-detail-author-line" style="margin-right:55%"></div>
+      <div class="skel-detail-meta">
+        <div class="skel-tag-pill"></div>
+        <div class="skel-detail-stat-line" style="width:48px"></div>
+        <div class="skel-detail-stat-line" style="width:45px"></div>
+        <div class="skel-detail-stat-line" style="width:56px"></div>
+      </div>
+      <div class="skel-detail-actions">
+        <div class="skel-pill skel-detail-btn-primary" style="height:34px"></div>
+        <div class="skel-pill skel-detail-btn-outline" style="height:34px"></div>
+        <div class="skel-pill skel-detail-btn-outline" style="height:34px"></div>
+        <div class="skel-pill skel-detail-btn-outline" style="height:34px"></div>
+      </div>
+    </div>
+  </div>`;
+  // Description
+  h += `<div class="skel-detail-desc">
+    <div class="skel-line skel-detail-text-line" style="margin-right:8%"></div>
+    <div class="skel-line skel-detail-text-line" style="margin-right:4%"></div>
+    <div class="skel-line skel-detail-text-line" style="margin-right:35%"></div>
+  </div>
+  <div class="skel-detail-desc-toggle"><div class="skel-line" style="height:12px;width:140px;margin:0 auto"></div></div>`;
+  h += `<div class="skel-chapter-section">
+    <div class="skel-chapter-header">
+      <div class="skel-line" style="height:14px;margin-right:45%"></div>
+      <div class="skel-pill" style="width:120px;height:26px"></div>
+    </div>
+    <div class="skel-chapter-list">
+      ${Array.from({length:8}, (_, i) => {
+        const mr = [15,30,8,25,12,35,20,10][i];
+        return `<div class="skel-chapter-item"><div class="skel-chapter-name" style="margin-right:${mr}%"></div><div class="skel-chapter-time"></div></div>`;
+      }).join('')}
+    </div>
+  </div>`;
+  // Sticky bottom
+  h += `<div class="skel-detail-sticky-spacer"></div><div class="skel-detail-sticky"><div class="skel-pill" style="width:100%;height:44px"></div></div>`;
+  h += '</div>';
+  return h;
+}
+
+// 4. Reader skeleton
+function skeletonReader() {
+  let h = '<div class="skel-reader">';
+  h += `<div class="skel-reader-header">
+    <div class="skel-line" style="height:18px;max-width:65%"></div>
+    <div class="skel-line" style="height:11px;max-width:45%"></div>
+  </div>`;
+  for (let i = 0; i < 8; i++) {
+    const mr = [8,4,25,12,35,4,15,45][i];
+    h += `<div class="skel-reader-para">
+      <div class="skel-line" style="margin-right:${mr}%"></div>
+      ${i < 6 ? `<div class="skel-line" style="margin-top:6px;margin-right:${mr + 10}%"></div>` : ''}
+    </div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+// 5. Comments skeleton
+function skeletonComments(count) {
+  let h = '<div class="skel-comments">';
+  h += `<div class="skel-line" style="height:16px;margin-right:60%;margin-bottom:16px"></div>`;
+  for (let i = 0; i < (count || 4); i++) {
+    h += `<div class="skel-comment-item">
+      ${skelLine(65,12)}
+      ${skelLine(8,13)}
+      ${skelLine(25,13)}
+      ${skelLine(75,10)}
+    </div>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+// 6. Shelf skeleton
+function skeletonShelf() {
+  let h = '<div class="skel-shelf">';
+  h += `<div class="skel-line" style="height:16px;margin-right:55%;margin-bottom:16px"></div>`;
+  h += '<div class="skel-shelf-grid">';
+  for (let i = 0; i < 6; i++) {
+    h += `<div class="skel-shelf-item">
+      <div class="skel-cover-shelf"></div>
+      <div class="skel-shelf-name"></div>
+    </div>`;
+  }
+  h += '</div></div>';
+  return h;
+}
+
+// 7. Author page skeleton
+function skeletonAuthor() {
+  let h = '<div class="skel-author">';
+  h += `<div class="skel-author-header" style="position:relative">
+    <div class="skel-author-avatar-c"><div class="skel-circle" style="width:72px;height:72px;flex-shrink:0"></div></div>
+    <div class="skel-author-info">
+      <div class="skel-line" style="height:24px;margin-right:35%"></div>
+      ${skelLine(45,11)}
+    </div>
+    <div class="skel-pill skel-author-follow" style="width:70px;height:28px"></div>
+  </div>`;
+  h += '<div class="skel-author-books">';
+  for (let i = 0; i < 3; i++) {
+    h += `<div class="skeleton-card">
+      <div class="skeleton-cover"></div>
+      <div class="skeleton-info">
+        <div class="skel-title-row"><div class="skel-line" style="margin-right:25%"></div><div class="skel-status-badge"></div></div>
+        ${skelLine(50,11)}
+        ${skelLine(8,11)}
+        ${skelLine(30,11)}
+      </div>
+    </div>`;
+  }
+  h += '</div></div>';
+  return h;
+}
+
+// Keep backward compat - generic book cards
+function skeletonHtml(count) { return skeletonResults(count); }
 function loadingHtml(msg) { return `<div class="loading view">${msg || '加载中...'}</div>`; }
 function errorHtml(msg, retryHash) { return `<div class="error view">${msg}<br><button class="error-retry" onclick="navigate('${retryHash}')">重试</button></div>`; }
 

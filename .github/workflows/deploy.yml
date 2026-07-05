@@ -41,29 +41,18 @@ jobs:
             
             # --- Setup unidbg directly on host ---
             UNIDBG_DIR=/opt/unidbg
-            JAVA_DIR=/opt/jdk11
             UNIDBG_JAR="$UNIDBG_DIR/unidbg-boot-server.jar"
             JAR_URL="https://github.com/mtongle/fqnovel-unidbg/releases/download/v0.0.4/unidbg-boot-server-0.0.4.jar"
-            JRE_URL="https://github.com/adoptium/temurin11-binaries/releases/download/jdk-11.0.26%2B4/OpenJDK11U-jre_x64_linux_hotspot_11.0.26_4.tar.gz"
             
             mkdir -p "$UNIDBG_DIR"
             
-            # Download JRE 11 if not present
-            if [ ! -f "$JAVA_DIR/bin/java" ]; then
-              echo "Downloading OpenJDK 11 JRE..."
-              mkdir -p "$JAVA_DIR"
-              curl -fsSL "$JRE_URL" | tar xz -C "$JAVA_DIR" --strip-components=1
-              echo "JRE installed: $($JAVA_DIR/bin/java -version 2>&1 | head -1)"
-            else
-              echo "JRE already exists: $($JAVA_DIR/bin/java -version 2>&1 | head -1)"
+            # Install JRE + required libs if not present
+            if ! command -v java &>/dev/null; then
+              echo "Installing default JRE (Debian 12)..."
+              apt-get update -qq && apt-get install -y -qq default-jre-headless curl libstdc++6
             fi
-            export PATH="$JAVA_DIR/bin:$PATH"
-            
-            # Install libstdc++ if missing (unidbg JNA needs it)
-            if ! ldconfig -p | grep -q libstdc++; then
-              echo "Installing libstdc++6..."
-              apt-get update -qq && apt-get install -y -qq libstdc++6 curl 2>/dev/null || true
-            fi
+            JAVA_BIN=$(which java)
+            echo "Java version: $($JAVA_BIN -version 2>&1 | head -1)"
             
             # Download unidbg JAR if not present
             if [ ! -f "$UNIDBG_JAR" ]; then
@@ -81,7 +70,7 @@ jobs:
             # Start unidbg in background with memory limits
             echo "Starting unidbg..."
             cd "$UNIDBG_DIR"
-            nohup "$JAVA_DIR/bin/java" -Xms64m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -jar "$UNIDBG_JAR" > "$UNIDBG_DIR/unidbg.log" 2>&1 &
+            nohup "$JAVA_BIN" -Xms64m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -jar "$UNIDBG_JAR" > "$UNIDBG_DIR/unidbg.log" 2>&1 &
             echo "unidbg PID: $!"
             disown
             

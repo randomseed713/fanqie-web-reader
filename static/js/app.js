@@ -187,13 +187,25 @@ function changeLineHeightTo(lh) {
   readerSettingsChanged();
 }
 
-// ---- Read mode (scroll / page) ----
+// ---- Read mode ----
+const READ_MODES = [
+  { id: 'page', label: '翻页' },
+  { id: 'scroll', label: '滚动' },
+  { id: 'no-anim', label: '无动画' },
+  { id: 'simulation', label: '仿真' },
+];
 function getReadMode() { return localStorage.getItem('readMode') || 'page'; }
 function setReadMode(mode) { localStorage.setItem('readMode', mode); }
-function cycleReadMode() {
-  const next = getReadMode() === 'scroll' ? 'page' : 'scroll';
-  setReadMode(next);
+function switchReadMode(mode) {
+  setReadMode(mode);
   window.dispatchEvent(new CustomEvent('read-mode-change'));
+}
+function cycleReadMode() {
+  const order = READ_MODES.map(m => m.id);
+  const cur = getReadMode();
+  const idx = order.indexOf(cur);
+  const next = order[(idx + 1) % order.length];
+  switchReadMode(next);
 }
 function readerSettingsChanged() { window.dispatchEvent(new CustomEvent('reader-settings-change')); }
 

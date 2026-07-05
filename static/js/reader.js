@@ -46,7 +46,7 @@ function renderReader(app, bid, idx) {
   const c = getContentCache(chapterId);
   if (!c) { app.innerHTML = loadingHtml(); return; }
   if (getReadMode() === 'scroll') renderScrollReader(app, bid, idx);
-  else renderPageReader(app, bid, idx);
+  else renderPageReader(app, bid, idx); // page, no-anim, simulation all use renderPageReader
 }
 
 // ====== Scroll Reader ======
@@ -112,15 +112,14 @@ function renderScrollReader(app, bid, idx) {
           <button class="bg-swatch swatch-dark${dt==='dark'?' active':''}" onclick="applyThemeFrom(event,'dark')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
         </div>
         <span class="settings-label" style="margin-left:auto">模式</span>
-        <div class="settings-chips" style="flex:0">
-          <button class="settings-chip${curMode==='scroll'?' active':''}" onclick="cycleReadMode()">${curMode==='scroll'?'滚动':'翻页'}</button>
+        <div class="settings-chips" style="flex:0;flex-wrap:wrap;justify-content:flex-end">
+          ${READ_MODES.map(m => `<button class="settings-chip${curMode===m.id?' active':''}" onclick="switchReadMode('${m.id}')">${m.label}</button>`).join('')}
         </div>
       </div>
     </div>
     <div class="sheet-divider"></div>
     <div class="sheet-nav">
       <button onclick="shareLink('${escapeHtml(chapterTitle)}','/#reader?book_id=${bid}&chapter_idx=${idx}')">分享</button>
-      <button onclick="cycleReadMode()">切换模式</button>
     </div>
   </div>`;
 
@@ -285,9 +284,8 @@ function renderPageReader(app, bid, idx) {
                 <button class="bg-swatch swatch-dark${dt==='dark'?' active':''}" onclick="applyThemeFrom(event,'dark')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
               </div>
               <span class="settings-label" style="margin-left:auto">模式</span>
-              <div class="settings-chips" style="flex:0">
-                <button class="settings-chip${curMode==='page'?' active':''}" onclick="setReadMode('page');cycleReadMode()">翻页</button>
-                <button class="settings-chip${curMode==='scroll'?' active':''}" onclick="setReadMode('scroll');cycleReadMode()">滚动</button>
+              <div class="settings-chips" style="flex:0;flex-wrap:wrap;justify-content:flex-end">
+                ${READ_MODES.map(m => `<button class="settings-chip${curMode===m.id?' active':''}" onclick="switchReadMode('${m.id}')">${m.label}</button>`).join('')}
               </div>
             </div>
           </div>
@@ -474,6 +472,10 @@ function pgGoToPage(target, animate) {
   
   const viewport = $('pageViewport');
   if (!viewport) return;
+  const mode = getReadMode();
+  
+  // no-anim mode: always instant
+  if (mode === 'no-anim') animate = false;
   
   const oldPage = viewport.querySelector(`.page-page[data-page="${pg.curPage}"]`);
   const newPage = viewport.querySelector(`.page-page[data-page="${target}"]`);
@@ -491,20 +493,42 @@ function pgGoToPage(target, animate) {
     // Force reflow
     newPage.offsetHeight;
     
-    // Animate both pages
-    newPage.style.transition = 'transform 0.3s ease';
-    oldPage.style.transition = 'transform 0.3s ease';
-    oldPage.style.transform = `translateX(${-dir * 100}%)`;
-    newPage.style.transform = 'translateX(0)';
-    
-    setTimeout(() => {
-      oldPage.style.display = 'none';
-      oldPage.style.transform = '';
-      oldPage.style.transition = '';
-      newPage.style.transform = '';
-      newPage.style.transition = '';
-      pg.animating = false;
-    }, 320);
+    if (mode === 'simulation') {
+      viewport.style.perspective = '1200px';
+      viewport.style.perspectiveOrigin = 'center center';
+      newPage.style.transition = 'transform 0.35s ease, box-shadow 0.3s ease';
+      newPage.style.transform = 'translateX(0) scale(0.97)';
+      newPage.style.boxShadow = dir === 1 ? '-4px 0 16px rgba(0,0,0,0.1)' : '4px 0 16px rgba(0,0,0,0.1)';
+      oldPage.style.transition = 'transform 0.4s ease, box-shadow 0.3s ease';
+      oldPage.style.transform = `translateX(${-dir * 65}%) rotateY(${dir * 12}deg) scale(0.94)`;
+      oldPage.style.boxShadow = dir === 1 ? '12px 0 32px rgba(0,0,0,0.22)' : '-12px 0 32px rgba(0,0,0,0.22)';
+      setTimeout(() => {
+        oldPage.style.display = 'none';
+        oldPage.style.transform = '';
+        oldPage.style.transition = '';
+        oldPage.style.boxShadow = '';
+        newPage.style.transform = '';
+        newPage.style.transition = '';
+        newPage.style.boxShadow = '';
+        viewport.style.perspective = '';
+        viewport.style.perspectiveOrigin = '';
+        pg.animating = false;
+      }, 420);
+    } else {
+      // Standard slide animation
+      newPage.style.transition = 'transform 0.3s ease';
+      oldPage.style.transition = 'transform 0.3s ease';
+      oldPage.style.transform = `translateX(${-dir * 100}%)`;
+      newPage.style.transform = 'translateX(0)';
+      setTimeout(() => {
+        oldPage.style.display = 'none';
+        oldPage.style.transform = '';
+        oldPage.style.transition = '';
+        newPage.style.transform = '';
+        newPage.style.transition = '';
+        pg.animating = false;
+      }, 320);
+    }
   } else {
     // Instant switch
     if (oldPage && oldPage !== newPage) oldPage.style.display = 'none';
@@ -579,31 +603,55 @@ async function pgSwitchChapter(newIdx, startPageHint) {
   });
 
   // Animate: old page slides out, new page slides in
+  const mode = getReadMode();
   const newPageEl = viewport.querySelector(`.page-page[data-page="${targetPage}"]`);
   if (oldPageEl && newPageEl && oldPageEl.parentNode !== viewport) {
-    // oldPageEl was removed by pgCalculatePages — re-add it for animation
-    oldPageEl.style.display = '';
-    oldPageEl.style.position = 'absolute';
-    oldPageEl.style.inset = '0';
-    viewport.insertBefore(oldPageEl, viewport.firstChild);
-
-    pg.animating = true;
-    newPageEl.style.display = '';
-    newPageEl.style.transform = `translateX(${dir * 100}%)`;
-    newPageEl.style.transition = 'none';
-    oldPageEl.offsetHeight; // force reflow
-
-    newPageEl.style.transition = 'transform 0.3s ease';
-    oldPageEl.style.transition = 'transform 0.3s ease';
-    oldPageEl.style.transform = `translateX(${-dir * 100}%)`;
-    newPageEl.style.transform = 'translateX(0)';
-
-    setTimeout(() => {
+    if (mode === 'no-anim') {
       oldPageEl.remove();
-      newPageEl.style.transform = '';
-      newPageEl.style.transition = '';
-      pg.animating = false;
-    }, 320);
+    } else {
+      // oldPageEl was removed by pgCalculatePages — re-add it for animation
+      oldPageEl.style.display = '';
+      oldPageEl.style.position = 'absolute';
+      oldPageEl.style.inset = '0';
+      viewport.insertBefore(oldPageEl, viewport.firstChild);
+
+      pg.animating = true;
+      newPageEl.style.display = '';
+      newPageEl.style.transform = `translateX(${dir * 100}%)`;
+      newPageEl.style.transition = 'none';
+      oldPageEl.offsetHeight; // force reflow
+
+      if (mode === 'simulation') {
+        viewport.style.perspective = '1200px';
+        viewport.style.perspectiveOrigin = 'center center';
+        newPageEl.style.transition = 'transform 0.35s ease, box-shadow 0.3s ease';
+        newPageEl.style.transform = 'translateX(0) scale(0.97)';
+        newPageEl.style.boxShadow = dir === 1 ? '-4px 0 16px rgba(0,0,0,0.1)' : '4px 0 16px rgba(0,0,0,0.1)';
+        oldPageEl.style.transition = 'transform 0.4s ease, box-shadow 0.3s ease';
+        oldPageEl.style.transform = `translateX(${-dir * 65}%) rotateY(${dir * 12}deg) scale(0.94)`;
+        oldPageEl.style.boxShadow = dir === 1 ? '12px 0 32px rgba(0,0,0,0.22)' : '-12px 0 32px rgba(0,0,0,0.22)';
+        setTimeout(() => {
+          oldPageEl.remove();
+          newPageEl.style.transform = '';
+          newPageEl.style.transition = '';
+          newPageEl.style.boxShadow = '';
+          viewport.style.perspective = '';
+          viewport.style.perspectiveOrigin = '';
+          pg.animating = false;
+        }, 420);
+      } else {
+        newPageEl.style.transition = 'transform 0.3s ease';
+        oldPageEl.style.transition = 'transform 0.3s ease';
+        oldPageEl.style.transform = `translateX(${-dir * 100}%)`;
+        newPageEl.style.transform = 'translateX(0)';
+        setTimeout(() => {
+          oldPageEl.remove();
+          newPageEl.style.transform = '';
+          newPageEl.style.transition = '';
+          pg.animating = false;
+        }, 320);
+      }
+    }
   }
 
   pg.curPage = targetPage;
@@ -704,6 +752,11 @@ function setupPgGestures() {
       }
     }
     if (pg.swipeActive && dragCurrentPage) {
+      const mode = getReadMode();
+      if (mode === 'simulation') {
+        viewport.style.perspective = '1200px';
+        viewport.style.perspectiveOrigin = 'center center';
+      }
       dragCurrentPage.style.transition = 'none';
       dragCurrentPage.style.transform = `translateX(${dx}px)`;
       // Move adjacent page to follow the drag
@@ -732,34 +785,61 @@ function setupPgGestures() {
     const viewport = $('pageViewport');
     const dir = target > pg.curPage ? 1 : -1;
 
+    const mode = getReadMode();
     if (target !== pg.curPage) {
+      if (mode === 'no-anim') {
+        pgGoToPage(target, false);
+        dragCurrentPage = null;
+        return;
+      }
       // Animate current page and target page to their final positions from drag position
       pg.animating = true;
       const targetEl = viewport ? viewport.querySelector(`.page-page[data-page="${target}"]`) : null;
-      if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.3s ease'; dragCurrentPage.style.transform = `translateX(${-dir * 100}%)`; }
-      if (targetEl) { targetEl.style.transition = 'transform 0.3s ease'; targetEl.style.transform = 'translateX(0)'; }
+      if (mode === 'simulation') {
+        if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.4s ease, box-shadow 0.3s ease'; dragCurrentPage.style.transform = `translateX(${-dir * 65}%) rotateY(${dir * 12}deg) scale(0.94)`; dragCurrentPage.style.boxShadow = dir === 1 ? '12px 0 32px rgba(0,0,0,0.22)' : '-12px 0 32px rgba(0,0,0,0.22)'; }
+        if (targetEl) { targetEl.style.transition = 'transform 0.35s ease, box-shadow 0.3s ease'; targetEl.style.transform = 'translateX(0) scale(0.97)'; targetEl.style.boxShadow = dir === 1 ? '-4px 0 16px rgba(0,0,0,0.1)' : '4px 0 16px rgba(0,0,0,0.1)'; }
+      } else {
+        if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.3s ease'; dragCurrentPage.style.transform = `translateX(${-dir * 100}%)`; }
+        if (targetEl) { targetEl.style.transition = 'transform 0.3s ease'; targetEl.style.transform = 'translateX(0)'; }
+      }
       // Hide the other adjacent page
       const otherDir = -dir;
       const otherIdx = pg.curPage + otherDir;
       const otherEl = viewport ? viewport.querySelector(`.page-page[data-page="${otherIdx}"]`) : null;
       if (otherEl) { otherEl.style.display = 'none'; otherEl.style.transition = ''; otherEl.style.transform = ''; }
+      const timeout = mode === 'simulation' ? 420 : 320;
       setTimeout(() => {
         // Cleanup: hide old page, reset all styles
-        if (dragCurrentPage && dragCurrentPage.parentNode) { dragCurrentPage.style.display = 'none'; dragCurrentPage.style.transition = ''; dragCurrentPage.style.transform = ''; }
-        if (targetEl) { targetEl.style.transition = ''; targetEl.style.transform = ''; }
+        if (dragCurrentPage && dragCurrentPage.parentNode) { dragCurrentPage.style.display = 'none'; dragCurrentPage.style.transition = ''; dragCurrentPage.style.transform = ''; dragCurrentPage.style.boxShadow = ''; }
+        if (targetEl) { targetEl.style.transition = ''; targetEl.style.transform = ''; targetEl.style.boxShadow = ''; }
+        if (mode === 'simulation' && viewport) { viewport.style.perspective = ''; viewport.style.perspectiveOrigin = ''; }
         pg.animating = false;
-      }, 320);
+      }, timeout);
       pg.curPage = target;
       pgUpdateUI();
     } else {
+      if (mode === 'no-anim') {
+        if (dragCurrentPage) { dragCurrentPage.style.transform = ''; dragCurrentPage.style.boxShadow = ''; }
+        if (viewport) {
+          const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
+          const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
+          if (prev) { prev.style.display = 'none'; prev.style.transform = ''; }
+          if (next) { next.style.display = 'none'; next.style.transform = ''; }
+        }
+        dragCurrentPage = null;
+        return;
+      }
       // Cancelled drag — animate everything back
-      if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.3s ease'; dragCurrentPage.style.transform = 'translateX(0)'; }
+      const dur = mode === 'simulation' ? 0.35 : 0.3;
+      const timeout = mode === 'simulation' ? 370 : 300;
+      if (dragCurrentPage) { dragCurrentPage.style.transition = `transform ${dur}s ease, box-shadow ${dur}s ease`; dragCurrentPage.style.transform = 'translateX(0)'; dragCurrentPage.style.boxShadow = ''; }
       if (viewport) {
         const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
         const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
-        if (prev) { prev.style.transition = 'transform 0.3s ease'; prev.style.transform = 'translateX(-100%)'; setTimeout(() => { prev.style.display = 'none'; prev.style.transition = ''; prev.style.transform = ''; }, 300); }
-        if (next) { next.style.transition = 'transform 0.3s ease'; next.style.transform = 'translateX(100%)'; setTimeout(() => { next.style.display = 'none'; next.style.transition = ''; next.style.transform = ''; }, 300); }
+        if (prev) { prev.style.transition = `transform ${dur}s ease`; prev.style.transform = 'translateX(-100%)'; setTimeout(() => { prev.style.display = 'none'; prev.style.transition = ''; prev.style.transform = ''; }, timeout); }
+        if (next) { next.style.transition = `transform ${dur}s ease`; next.style.transform = 'translateX(100%)'; setTimeout(() => { next.style.display = 'none'; next.style.transition = ''; next.style.transform = ''; }, timeout); }
       }
+      if (mode === 'simulation' && viewport) { viewport.style.perspective = ''; viewport.style.perspectiveOrigin = ''; }
     }
     dragCurrentPage = null;
   }, { passive: true });
@@ -768,7 +848,7 @@ function setupPgGestures() {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;
     const hash = location.hash.slice(1)||'';
     if (!hash.startsWith('reader')) return;
-    if (getReadMode() !== 'page') return;
+    if (getReadMode() === 'scroll') return;
     if (e.key==='ArrowLeft'||e.key==='a') pagePrev();
     else if (e.key==='ArrowRight'||e.key==='d') pageNext();
     else if (e.key==='Escape') goBack();
@@ -785,13 +865,13 @@ window.addEventListener('read-mode-change', () => {
   if (q.book_id) renderReader($('app'), q.book_id, parseInt(q.chapter_idx||'0'));
 });
 window.addEventListener('reader-settings-change', () => {
-  if (getReadMode() === 'page' && $('pageViewport')) setTimeout(() => pgCalculatePages(), 150);
+  if (getReadMode() !== 'scroll' && $('pageViewport')) setTimeout(() => pgCalculatePages(), 150);
 });
 
 // ====== Resize handling ======
 let pgResizeTimer = 0;
 window.addEventListener('resize', () => {
-  if (getReadMode() !== 'page' || !$('pageViewport')) return;
+  if (getReadMode() === 'scroll' || !$('pageViewport')) return;
   clearTimeout(pgResizeTimer);
   pgResizeTimer = setTimeout(() => pgCalculatePages(), 200);
 });

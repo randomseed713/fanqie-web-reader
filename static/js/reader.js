@@ -626,34 +626,26 @@ function pgFontSize(d) { changeFontSize(d); setTimeout(()=>pgCalculatePages(),15
 function pgLineHeight(d) { changeLineHeight(d); setTimeout(()=>pgCalculatePages(),150); }
 function pgCalcDelayed() { setTimeout(()=>pgCalculatePages(),150); }
 
-// ====== Touch/Mouse gestures ======
+// ====== Touch gestures ======
 function setupPgGestures() {
   const container = $('pageContainer');
   if (!container) return;
   
   let dragCurrentPage = null;
-
-  function getXY(e) {
-    if (e.touches) return { x: e.touches[0].clientX, y: e.touches[0].clientY };
-    if (e.changedTouches) return { x: e.changedTouches[0].clientX, y: e.changedTouches[0].clientY };
-    return { x: e.clientX, y: e.clientY };
-  }
-
-  function onDown(e) {
+  
+  container.addEventListener('touchstart', e => {
     if (pg.animating) return;
-    const { x, y } = getXY(e);
-    pg.swipeStartX = x;
-    pg.swipeStartY = y;
+    pg.swipeStartX = e.touches[0].clientX;
+    pg.swipeStartY = e.touches[0].clientY;
     pg.swipeStartTime = Date.now();
     pg.swipeActive = false;
     dragCurrentPage = null;
-  }
-
-  function onMove(e) {
+  }, { passive: true });
+  
+  container.addEventListener('touchmove', e => {
     if (pg.animating) return;
-    const { x, y } = getXY(e);
-    const dx = x - pg.swipeStartX;
-    const dy = y - pg.swipeStartY;
+    const dx = e.touches[0].clientX - pg.swipeStartX;
+    const dy = e.touches[0].clientY - pg.swipeStartY;
     if (!pg.swipeActive) {
       if (Math.abs(dx) < 15 || Math.abs(dy) > Math.abs(dx)) return;
       pg.swipeActive = true;
@@ -668,18 +660,16 @@ function setupPgGestures() {
       }
     }
     if (pg.swipeActive && dragCurrentPage) {
-      e.preventDefault();
       dragCurrentPage.style.transition = 'none';
       dragCurrentPage.style.transform = `translateX(${dx}px)`;
     }
-  }
-
-  function onUp(e) {
+  }, { passive: true });
+  
+  container.addEventListener('touchend', e => {
     if (!pg.swipeActive) return;
     pg.swipeActive = false;
     
-    const { x } = getXY(e);
-    const dx = x - pg.swipeStartX;
+    const dx = e.changedTouches[0].clientX - pg.swipeStartX;
     const cw = container.clientWidth;
     const threshold = cw * 0.15;
     
@@ -719,15 +709,7 @@ function setupPgGestures() {
       }
     }
     dragCurrentPage = null;
-  }
-
-  container.addEventListener('touchstart', onDown, { passive: true });
-  container.addEventListener('touchmove', onMove, { passive: false });
-  container.addEventListener('touchend', onUp, { passive: true });
-  container.addEventListener('mousedown', onDown);
-  container.addEventListener('mousemove', onMove);
-  container.addEventListener('mouseup', onUp);
-  container.addEventListener('mouseleave', onUp);
+  }, { passive: true });
   
   document.onkeydown = e => {
     if (e.target.tagName==='INPUT'||e.target.tagName==='TEXTAREA') return;

@@ -139,6 +139,11 @@ function changeFont(fontId) {
   applyFont();
   const label = $('fontLabel');
   if (label) label.textContent = (FONTS.find(f => f.id === fontId) || FONTS[0]).name;
+  // Update font chip active states in toolbars
+  document.querySelectorAll('.settings-chip').forEach(c => {
+    const chipFont = FONTS.find(f => f.name === c.textContent);
+    c.classList.toggle('active', chipFont && chipFont.id === fontId);
+  });
   readerSettingsChanged();
 }
 function applyFont() {
@@ -150,20 +155,16 @@ function applyFont() {
 function getFontSize() { return parseInt(localStorage.getItem('fontSize') || '17'); }
 function changeFontSize(d) {
   const sz = Math.max(14, Math.min(28, getFontSize() + d));
-  localStorage.setItem('fontSize', sz);
-  document.documentElement.style.setProperty('--reader-font-size', sz + 'px');
-  const el = $('fontSizeLabel');
-  if (el) el.textContent = sz;
-  const sl = $('fontSizeSlider');
-  if (sl) sl.value = sz;
-  readerSettingsChanged();
+  changeFontSizeTo(sz);
 }
 function changeFontSizeTo(sz) {
   sz = Math.max(14, Math.min(28, parseInt(sz)));
   localStorage.setItem('fontSize', sz);
   document.documentElement.style.setProperty('--reader-font-size', sz + 'px');
-  const el = $('fontSizeLabel');
-  if (el) el.textContent = sz;
+  // Update all font-size sliders and labels in toolbars
+  document.querySelectorAll('.settings-slider').forEach(sl => {
+    if (sl.min === '14' && sl.max === '28') sl.value = sz;
+  });
   readerSettingsChanged();
 }
 
@@ -172,21 +173,17 @@ function getLineHeight() { return parseFloat(localStorage.getItem('lineHeight') 
 function changeLineHeight(d) {
   const lh = Math.round((getLineHeight() + d) * 10) / 10;
   if (lh < 1.4 || lh > 2.4) return;
-  localStorage.setItem('lineHeight', lh);
-  document.documentElement.style.setProperty('--reader-line-height', lh);
-  const el = $('lineHeightLabel');
-  if (el) el.textContent = lh.toFixed(1);
-  const sl = $('lineHeightSlider');
-  if (sl) sl.value = Math.round(lh * 10);
-  readerSettingsChanged();
+  changeLineHeightTo(lh);
 }
 function changeLineHeightTo(lh) {
   lh = Math.round(lh * 10) / 10;
   if (lh < 1.4 || lh > 2.4) return;
   localStorage.setItem('lineHeight', lh);
   document.documentElement.style.setProperty('--reader-line-height', lh);
-  const el = $('lineHeightLabel');
-  if (el) el.textContent = lh.toFixed(1);
+  // Update all line-height sliders in toolbars
+  document.querySelectorAll('.settings-slider').forEach(sl => {
+    if (sl.min === '14' && sl.max === '24') sl.value = Math.round(lh * 10);
+  });
   readerSettingsChanged();
 }
 

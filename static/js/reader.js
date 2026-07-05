@@ -651,6 +651,13 @@ function setupPgGestures() {
       pg.swipeActive = true;
       const viewport = $('pageViewport');
       dragCurrentPage = viewport ? viewport.querySelector(`.page-page[data-page="${pg.curPage}"]`) : null;
+      // Show adjacent pages so they're visible behind the current one during drag
+      if (viewport && dragCurrentPage) {
+        const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
+        const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
+        if (prev) { prev.style.display = ''; prev.style.transform = 'translateX(-100%)'; }
+        if (next) { next.style.display = ''; next.style.transform = 'translateX(100%)'; }
+      }
     }
     if (pg.swipeActive && dragCurrentPage) {
       dragCurrentPage.style.transition = 'none';
@@ -678,15 +685,29 @@ function setupPgGestures() {
       else if (dx > threshold && pg.curPage > 0) target = pg.curPage - 1;
     }
     
+    const viewport = $('pageViewport');
     if (target !== pg.curPage) {
+      // Reset adjacent pages before pgGoToPage animates properly
+      if (viewport) {
+        const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
+        const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
+        if (prev) { prev.style.transform = ''; prev.style.transition = ''; }
+        if (next) { next.style.transform = ''; next.style.transition = ''; }
+      }
       pgGoToPage(target, true);
-    } else if (dragCurrentPage) {
-      setTimeout(() => {
-        if (dragCurrentPage) {
-          dragCurrentPage.style.transition = '';
-          dragCurrentPage.style.transform = '';
-        }
-      }, 300);
+    } else {
+      // Cancelled drag — snap back and hide adjacent pages
+      if (viewport) {
+        const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
+        const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
+        if (prev) { prev.style.transition = 'transform 0.3s ease'; prev.style.transform = 'translateX(-100%)'; setTimeout(() => { prev.style.display = 'none'; prev.style.transition = ''; prev.style.transform = ''; }, 300); }
+        if (next) { next.style.transition = 'transform 0.3s ease'; next.style.transform = 'translateX(100%)'; setTimeout(() => { next.style.display = 'none'; next.style.transition = ''; next.style.transform = ''; }, 300); }
+      }
+      if (dragCurrentPage) {
+        setTimeout(() => {
+          if (dragCurrentPage) { dragCurrentPage.style.transition = ''; dragCurrentPage.style.transform = ''; }
+        }, 300);
+      }
     }
     dragCurrentPage = null;
   }, { passive: true });

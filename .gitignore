@@ -2,8 +2,7 @@ __pycache__/
 *.pyc
 nul
 test_*
-charset.json
 decoded_output.txt
-font_decoder.py
-requirements.txt
 test_font_dl.woff2
+.playwright-cli/
+*.png

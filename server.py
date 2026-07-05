@@ -625,35 +625,68 @@ def _normalize_comments(raw) -> list:
     for item in reviews:
         if not isinstance(item, dict):
             continue
-        # Extract user info (handle nested structures)
-        user_info = item.get("user") or item.get("user_info") or {}
+
+        # The real Fanqie/unidbg response wraps each entry as:
+        #   { "comment": { "common": { "content": {"text": ...},
+        #                              "create_timestamp": ...,
+        #                              "user_info": {"base_info": {"user_name":..., "user_avatar":...}} } } }
+        comment_obj = item.get("comment") or item.get("comment_info") or item
+        common = {}
+        if isinstance(comment_obj, dict):
+            common = comment_obj.get("common") or {}
+
+        # Extract user info — walk nested paths
         user_name = ""
         avatar_url = ""
-        if isinstance(user_info, dict):
-            user_name = user_info.get("name") or user_info.get("nick_name") or user_info.get("user_name") or ""
-            avatar_url = user_info.get("avatar_url") or user_info.get("avatar") or user_info.get("head_url") or ""
-        # Fallback to top-level user fields
+        def _u(d):
+            nonlocal user_name, avatar_url
+            if not isinstance(d, dict):
+                return
+            if not user_name:
+                user_name = d.get("user_name") or d.get("name") or d.get("nick_name") or ""
+            if not avatar_url:
+                avatar_url = d.get("user_avatar") or d.get("avatar_url") or d.get("avatar") or d.get("head_url") or ""
+        _u(item.get("user"))
+        _u(item.get("user_info"))
+        _u(item.get("user_info", {}).get("base_info"))
+        _u(common.get("user_info"))
+        _u(common.get("user_info", {}).get("base_info"))
         if not user_name:
             user_name = item.get("user_name") or item.get("nick_name") or item.get("name") or "匿名"
         if not avatar_url:
             avatar_url = item.get("avatar_url") or item.get("avatar") or item.get("head_url") or ""
 
-        # Extract text: try nested comment.common.content.text first
+        # Extract text
         text = ""
-        comment_obj = item.get("comment") or item.get("comment_info") or {}
-        if isinstance(comment_obj, dict):
-            common = comment_obj.get("common") or {}
-            if isinstance(common, dict):
-                content = common.get("content") or {}
-                if isinstance(content, dict):
-                    text = content.get("text") or content.get("content") or ""
-            if not text:
-                text = comment_obj.get("text") or comment_obj.get("content") or ""
+        content = common.get("content") or {}
+        if isinstance(content, dict):
+            text = content.get("text") or content.get("content") or ""
+        if not text and isinstance(comment_obj, dict):
+            text = comment_obj.get("text") or comment_obj.get("content") or ""
         if not text:
             text = item.get("text") or item.get("content") or item.get("comment_text") or item.get("reply_text") or ""
-        digg_count = item.get("digg_count") or item.get("like_count") or item.get("digg") or 0
-        # Handle timestamp
-        ts = item.get("created_ts") or item.get("create_timestamp") or item.get("create_time") or item.get("ctime") or 0
+
+        # Digg/like count
+        digg_count = (
+            item.get("digg_count") or item.get("like_count") or item.get("digg") or 0
+        )
+        stat = common.get("digg_count") or common.get("like_count")
+        if stat:
+            digg_count = stat
+
+        # Timestamp — Fanqie uses create_timestamp (seconds) in common
+        ts = 0
+        for tsrc in [
+            common.get("create_timestamp"),
+            comment_obj.get("create_timestamp") if isinstance(comment_obj, dict) else None,
+            item.get("created_ts"),
+            item.get("create_timestamp"),
+            item.get("create_time"),
+            item.get("ctime"),
+        ]:
+            if isinstance(tsrc, (int, float)) and tsrc > 0:
+                ts = tsrc
+                break
         if isinstance(ts, (int, float)) and ts > 1_000_000_000_000:
             ts = ts // 1000
 

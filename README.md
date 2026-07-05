@@ -115,6 +115,8 @@ fanqie-web-reader/
 
 🧩 [智谱 Coding Plan](https://www.bigmodel.cn/glm-coding?ic=DPYG6NTSNI) — 国内顶流编程大模型，20+ 主流工具全适配，性价比拉满（笑死，根本抢不到）
 
+🌐 [Nube.sh](https://nube.sh/invite/660603280ZQ7QF) — 高性价比且强劲的弹性云服务器，基于 Zen 3 EPYC，1 vCPU + 1 GB DDR4 每月仅 $1.09 起
+
 ## 🙏 致谢
 
 - [番茄小说](https://fanqienovel.com/) — 内容来源平台

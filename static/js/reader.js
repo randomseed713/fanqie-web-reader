@@ -662,6 +662,12 @@ function setupPgGestures() {
     if (pg.swipeActive && dragCurrentPage) {
       dragCurrentPage.style.transition = 'none';
       dragCurrentPage.style.transform = `translateX(${dx}px)`;
+      // Move adjacent page to follow the drag
+      const cw = container.clientWidth;
+      const prev = $('pageViewport')?.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
+      const next = $('pageViewport')?.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
+      if (prev && prev.style.display !== 'none') { prev.style.transition = 'none'; prev.style.transform = `translateX(${-cw + dx}px)`; }
+      if (next && next.style.display !== 'none') { next.style.transition = 'none'; next.style.transform = `translateX(${cw + dx}px)`; }
     }
   }, { passive: true });
   

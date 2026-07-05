@@ -103,7 +103,7 @@ route('search', (q, app) => {
   }
 });
 
-route('shelf', (q, app) => { $('pageTitle').textContent = '我的书架'; $('searchInput').value = ''; $('searchInput').placeholder = '搜索书架...'; updateClearBtn(); _shelfFilter = ''; renderShelf(app); });
+route('shelf', (q, app) => { const count = loadData().shelf.length; $('pageTitle').textContent = `我的书架 (${count})`; $('searchInput').value = ''; $('searchInput').placeholder = '搜索书架...'; updateClearBtn(); _shelfFilter = ''; renderShelf(app); });
 
 route('author', async (q, app) => {
   const authorId = q.author_id || '';

@@ -96,7 +96,7 @@ function renderShelf(app, filter) {
   const shelf = _shelfFilter
     ? data.shelf.filter(b => (b.name||'').toLowerCase().includes(_shelfFilter.toLowerCase()) || (b.author||'').toLowerCase().includes(_shelfFilter.toLowerCase()))
     : data.shelf;
-  let html = `<div class="home-section view"><div class="section-title">我的书架 (${shelf.length})</div>`;
+  let html = `<div class="home-section view">`;
   if (!data.shelf.length) html += '<div class="shelf-empty"><div class="icon"><i data-lucide="book-open" width="48" height="48"></i></div><div>还没有收藏的书籍<br><span style="font-size:12px">在书籍详情页点击收藏即可加入书架</span></div><button class="shelf-empty-cta" onclick="navigate(\'search\')">去书城逛逛</button></div>';
   else if (!shelf.length) html += '<div class="shelf-empty"><div class="icon"><i data-lucide="search" width="32" height="32"></i></div><div>书架中没有匹配的书籍</div></div>';
   else {

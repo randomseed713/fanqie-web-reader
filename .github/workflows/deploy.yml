@@ -77,24 +77,7 @@ jobs:
             fi
             
             # Create minimal config: single worker, no async, small device pool
-            cat > "$UNIDBG_DIR/application.yml" << 'EOF'
-server:
-  port: 8099
-spring:
-  redis:
-    host: 0.0.0.0
-application:
-  unidbg:
-    dynarmic: false
-    verbose: false
-    async: false
-fq:
-  api:
-    base-url: https://api5-normal-sinfonlineb.fqnovel.com
-    device-pool:
-      enabled: true
-      size: 1
-EOF
+            printf 'server:\n  port: 8099\nspring:\n  redis:\n    host: 0.0.0.0\napplication:\n  unidbg:\n    dynarmic: false\n    verbose: false\n    async: false\nfq:\n  api:\n    base-url: https://api5-normal-sinfonlineb.fqnovel.com\n    device-pool:\n      enabled: true\n      size: 1\n' > "$UNIDBG_DIR/application.yml"
             
             # Stop old unidbg process
             if [ -f "$PID_FILE" ]; then

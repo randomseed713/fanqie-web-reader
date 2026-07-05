@@ -23,6 +23,10 @@ function goBack() {
     location.hash = `detail?book_id=${q.book_id}`;
   } else if (path === 'comments' && q.book_id) {
     location.hash = `detail?book_id=${q.book_id}`;
+  } else if (path === 'author') {
+    // Author page → back to the detail page that linked here
+    const fromBookId = q.from || '';
+    location.hash = fromBookId ? `detail?book_id=${fromBookId}` : lastTopTab;
   } else if (path === 'detail') {
     location.hash = lastTopTab;
   } else {
@@ -99,6 +103,14 @@ route('search', (q, app) => {
 });
 
 route('shelf', (q, app) => { $('pageTitle').textContent = '我的书架'; renderShelf(app); });
+
+route('author', async (q, app) => {
+  const authorId = q.author_id || '';
+  const name = q.name || '';
+  if (!authorId && !name) { navigate('search'); return; }
+  $('pageTitle').textContent = name || '作者';
+  renderAuthorPage(app, authorId, name);
+});
 
 route('detail', async (q, app) => {
   const bid = q.book_id;

@@ -9,7 +9,7 @@ function renderHome(app) {
     const dashOffset = circumference * (1 - pct / 100);
     html += `<div class="continue-card view" onclick="navigate('reader?book_id=${rh.bookId}&chapter_idx=${rh.chapterIdx}')">
       <div class="info"><div class="label">继续阅读</div><div class="title">${escapeHtml(rh.name||'')}</div><div class="chapter">${escapeHtml(rh.chapterName||'')}</div></div>
-      <div class="ring"><svg width="52" height="52"><circle class="ring-bg" cx="26" cy="26" r="22"/><circle class="ring-fg" cx="26" cy="26" r="22" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}"/></svg><div class="ring-text">${pct}%</div></div></div>`;
+      <div class="ring"><svg width="52" height="52"><circle class="ring-bg" cx="26" cy="26" r="22"/><circle class="ring-fg" cx="26" cy="26" r="22" stroke-dasharray="${circumference}" stroke-dashoffset="${dashOffset}"/></svg><div class="ring-text">${pct}%</div></div><i data-lucide="chevron-right" class="continue-chev" width="20" height="20"></i></div>`;
   }
   // Discover content — always shown (bookshelf is on its own tab)
   const genreTags = [
@@ -70,14 +70,14 @@ function renderResults(app) {
     const status = book.Status||'';
     const wc = book.WordCount ? (book.WordCount/10000).toFixed(1)+'万字' : '';
     const score = parseFloat(book.Score);
-    const stars = score > 0 ? '<i data-lucide="star" width="12" height="12" style="vertical-align:-1px"></i>'+(score/10).toFixed(1) : '';
+    const stars = score > 0 ? '<i data-lucide="star" width="12" height="12" style="vertical-align:-1px"></i>'+(score > 10 ? (score/10).toFixed(1) : score.toFixed(1)) : '';
     html += `<div class="book-card" onclick="navigate('detail?book_id=${book.BookID}')">
       <img class="book-cover" src="${book.ThumbUrl||FALLBACK_IMG}" loading="lazy" onerror="this.src='${FALLBACK_IMG}'">
       <div class="book-info">
         <div class="book-title">${escapeHtml(book.Name||'')}${status?`<span class="status-badge ${status==='连载中'?'ongoing':'finished'}">${status}</span>`:''}</div>
         <div class="book-author">${escapeHtml(book.Author||'')} ${stars?'· '+stars:''}</div>
         <div class="book-desc">${escapeHtml(book.Desc||'')}</div>
-        <div class="book-meta">${book.ChapterCount?book.ChapterCount+'章':''} ${wc?'· '+wc:''} ${book.Category?'· '+escapeHtml(book.Category):''} ${tags.map(t=>`<span class="tag-pill">${escapeHtml(t)}</span>`).join('')}</div>
+        <div class="book-meta">${[book.ChapterCount?book.ChapterCount+'章':'', wc, ...tags.map(t=>`<span class="tag-pill">${escapeHtml(t)}</span>`)].filter(Boolean).join(' · ')}</div>
       </div></div>`;
   }
   html += '</div>';
@@ -91,7 +91,7 @@ function renderShelf(app) {
   const data = loadData();
   const rh = data.readingHistory;
   let html = `<div class="home-section view"><div class="section-title">我的书架 (${data.shelf.length})</div>`;
-  if (!data.shelf.length) html += '<div class="shelf-empty"><div class="icon"><i data-lucide="book-open" width="48" height="48"></i></div><div>还没有收藏的书籍<br><span style="font-size:12px">在书籍详情页点击收藏即可加入书架</span></div></div>';
+  if (!data.shelf.length) html += '<div class="shelf-empty"><div class="icon"><i data-lucide="book-open" width="48" height="48"></i></div><div>还没有收藏的书籍<br><span style="font-size:12px">在书籍详情页点击收藏即可加入书架</span></div><button class="shelf-empty-cta" onclick="navigate(\'search\')">去书城逛逛</button></div>';
   else {
     html += '<div class="shelf-grid">';
     for (const b of data.shelf) {
@@ -119,6 +119,7 @@ function renderDetail(app, bid) {
   $('pageTitle').textContent = d.bookName || '书籍详情';
 
   let html = '<div class="book-detail view">';
+  let hasAlias = false;
   if (detail) {
     const cover = detail.thumb_url || detail.audio_thumb_uri || '';
     const title = detail.title || detail.book_name || '未知';
@@ -128,42 +129,98 @@ function renderDetail(app, bid) {
     const cc = detail.chapter_number || chapters.length || '';
     const wc = detail.word_number ? (detail.word_number/10000).toFixed(0)+'万字' : '';
     const score = detail.score || '';
+    const originalName = detail.original_book_name || '';
+    const aliasName = detail.book_flight_alias_name || '';
+    // Show alias if: original name differs from current title, or alias differs from both
+    const aliasParts = [];
+    if (originalName && originalName !== title) aliasParts.push(originalName);
+    if (aliasName && aliasName !== title && aliasName !== originalName) aliasParts.push(aliasName);
+    const aliasLine = aliasParts.length ? `<div class="book-detail-alias">又名：${aliasParts.map(n=>escapeHtml(n)).join(' / ')}</div>` : '';
+    hasAlias = detail.original_book_name && detail.original_book_name !== title;
+    let coverHtml;
+    if (hasAlias) {
+      coverHtml = `<div class="cover-flip" id="coverFlip" onclick="this.classList.toggle('flipped');event.stopPropagation()">
+        <div class="cover-flip-inner">
+          <div class="cover-flip-front">
+            <img src="${cover||FALLBACK_IMG}" onerror="this.src='${FALLBACK_IMG}'">
+            <span class="cover-flip-badge">推广</span>
+          </div>
+          <div class="cover-flip-back">
+            <img id="originalCoverImg" src="${cover||FALLBACK_IMG}" onerror="this.src='${FALLBACK_IMG}'">
+            <span class="cover-flip-badge">原始</span>
+          </div>
+        </div>
+        <span class="cover-flip-hint">⇄</span>
+      </div>`;
+    } else {
+      coverHtml = `<img class="book-detail-cover" src="${cover||FALLBACK_IMG}" onerror="this.src='${FALLBACK_IMG}'">`;
+    }
     html += `<div class="book-detail-header">
-      <img class="book-detail-cover" src="${cover||FALLBACK_IMG}" onerror="this.src='${FALLBACK_IMG}'">
+      ${coverHtml}
       <div class="book-detail-info">
         <div class="book-detail-title">${escapeHtml(title)}</div>
-        <div class="book-detail-author">${escapeHtml(author)}</div>
+        ${aliasLine}
+        <div class="book-detail-author"><a class="author-link" onclick="navigate('author?author_id=${encodeURIComponent(d.authorId||'')}&name=${encodeURIComponent(author)}&from=${bid}')">${escapeHtml(author)}</a></div>
         <div class="book-detail-meta">${cat?`<span class="detail-tag">${escapeHtml(cat)}</span>`:''}${cc?`<span class="detail-stat">${cc}章</span>`:''}${wc?`<span class="detail-stat">${wc}</span>`:''}${score?`<span class="detail-stat">评分 ${score}</span>`:''}</div>
         <div class="book-detail-actions">
           <button class="btn-primary" onclick="navigate('reader?book_id=${bid}&chapter_idx=${resumeIdx>=0?resumeIdx:0}')">${resumeIdx>=0?'继续阅读':'开始阅读'}</button>
           <button class="btn-outline" onclick="navigate('comments?book_id=${bid}')">评论</button>
-          <button class="btn-outline ${inShelf?'active':''}" onclick="doToggleShelf('${bid}')">${inShelf?'<i data-lucide="check" width="14" height="14" style="vertical-align:-2px"></i> 已收藏':'+ 收藏'}</button>
+          <button class="btn-outline ${inShelf?'active':''}" onclick="doToggleShelf('${bid}')">${inShelf?'<i data-lucide="check" width="14" height="14" style="vertical-align:-2px"></i> 已收藏':'<i data-lucide="bookmark" width="14" height="14" style="vertical-align:-2px"></i> 收藏'}</button>
           <button class="btn-outline" onclick="shareLink('${escapeHtml(title)}','/#detail?book_id=${bid}')">分享</button>
         </div>
       </div></div>`;
-    if (desc) html += `<div class="book-detail-desc">${escapeHtml(desc)}</div>`;
+    if (desc) html += `<div class="book-detail-desc collapsed" id="bookDesc">${escapeHtml(desc)}</div><button class="book-detail-desc-toggle" id="descToggle" onclick="toggleDesc()">展开简介 <i data-lucide="chevron-down" width="12" height="12" style="vertical-align:-1px"></i></button>`;
   } else { html += errorHtml('加载失败', `detail?book_id=${bid}`); }
   html += '</div>';
 
   const searchInput = chapters.length > 10 ? `<input type="text" class="chapter-search-input" placeholder="筛选..." oninput="debouncedFilter(this.value,'${bid}')">` : '';
-  const slider = chapters.length > 20 ? `<div class="chapter-slider-wrap"><input type="range" min="0" max="${chapters.length-1}" value="${resumeIdx>=0?resumeIdx:0}" oninput="onChapterSlider(this.value,'${bid}')" id="chapterSlider"><span class="chapter-slider-label" id="chapterSliderLabel">第${(resumeIdx>=0?resumeIdx:0)+1}章</span></div>` : '';
+  const slider = '';
   html += `<div class="chapter-section view"><div class="chapter-section-title"><span>章节目录 · ${chapters.length} 章</span>${searchInput}</div>${slider}<div class="chapter-list" id="chapterList">`;
   if (!chapters.length) html += '<div class="loading" style="padding:20px">暂无章节</div>';
   else html += renderChapterItems(chapters, bid, resumeIdx);
   html += '</div></div>';
   if (data.stats.chaptersRead > 0) html += `<div class="stats-bar view">已读 ${data.stats.chaptersRead} 章</div>`;
+  if (detail) html += `<div class="detail-sticky-spacer"></div><div class="detail-sticky"><button class="btn-primary" onclick="navigate('reader?book_id=${bid}&chapter_idx=${resumeIdx>=0?resumeIdx:0}')">${resumeIdx>=0?'继续阅读':'开始阅读'}</button></div>`;
 
-  const allBooks = Object.values(cache.detail).filter(x => x.bookAuthor && x.bookAuthor === d.bookAuthor && x.bookName !== d.bookName).slice(0,6);
-  if (allBooks.length > 0) {
-    html += `<div class="related-section view"><h3>同作者</h3><div class="related-scroll">`;
-    for (const rb of allBooks) {
-      const rbid = Object.keys(cache.detail).find(k => cache.detail[k] === rb);
-      html += `<div class="related-item" onclick="navigate('detail?book_id=${rbid}')"><img src="${rb.bookThumb||FALLBACK_IMG}" loading="lazy" onerror="this.src='${FALLBACK_IMG}'"><div class="name">${escapeHtml(rb.bookName)}</div></div>`;
-    }
-    html += '</div></div>';
-  }
   app.innerHTML = html;
+  // Setup cover flip for aliased books
+  if (hasAlias && d.authorId) {
+    fetchOriginalCover(d.authorId, bid);
+  }
   refreshIcons(app);
+  // Hide toggle if description is short enough (no overflow)
+  const desc = $('bookDesc');
+  const toggle = $('descToggle');
+  if (desc && toggle && desc.scrollHeight <= desc.clientHeight + 1) {
+    desc.classList.remove('collapsed');
+    toggle.style.display = 'none';
+  }
+}
+
+async function fetchAuthorBooks(author, currentBid, authorId) {
+  const scroll = $('authorBooksScroll');
+  if (!scroll) return;
+  try {
+    let books = [];
+    if (authorId) {
+      const r = await fetch(`${API}/api/author_books?author_id=${encodeURIComponent(authorId)}`);
+      const data = await r.json();
+      books = data.code === 200 ? (data.data || []) : [];
+    } else {
+      const r = await fetch(`${API}/api/search?key=${encodeURIComponent(author)}&tab_type=3`);
+      const data = await r.json();
+      books = ((data.code === 200 ? data.data : []) || []).filter(b => b.Author === author);
+    }
+    const others = books.filter(b => b.BookID !== currentBid).slice(0, 6);
+    if (!others.length) {
+      const section = $('authorBooksSection');
+      if (section) section.style.display = 'none';
+      return;
+    }
+    scroll.innerHTML = others.map(b => `<div class="related-item" onclick="navigate('detail?book_id=${b.BookID}')"><img src="${b.ThumbUrl||FALLBACK_IMG}" loading="lazy" onerror="this.src='${FALLBACK_IMG}'"><div class="name">${escapeHtml(b.Name||'')}</div>${b.ShortName?`<div class="related-short-name">${escapeHtml(b.ShortName)}</div>`:''}</div>`).join('');
+  } catch(e) {
+    scroll.innerHTML = '<div style="padding:12px 0;color:var(--text-muted);font-size:13px">加载失败</div>';
+  }
 }
 
 function renderChapterItems(chapters, bid, lastRead) {
@@ -195,6 +252,95 @@ function chapterItemHtml(ch, i, bid, lastRead) {
 }
 
 const debouncedFilter = debounce(filterChapters, 200);
+
+// ====== Render: Author Page ======
+async function renderAuthorPage(app, authorId, authorName) {
+  const displayName = authorName || '作者';
+  if ($('pageTitle')) $('pageTitle').textContent = '作者主页';
+  app.innerHTML = `<div class="author-page view">
+    <div class="author-header">
+      <div class="author-avatar"><i data-lucide="user" width="36" height="36"></i></div>
+      <div class="author-info">
+        <div class="author-name">${escapeHtml(displayName)}</div>
+        <div class="author-meta" id="authorMeta">
+          <span class="meta-item"><i data-lucide="book-open" width="13" height="13"></i> 加载中...</span>
+        </div>
+      </div>
+      <button class="author-follow-btn">关注</button>
+    </div>
+    <div class="author-books" id="authorBooks"><div class="loading" style="padding:40px 0">加载中...</div></div>
+  </div>`;
+  refreshIcons(app);
+
+  try {
+    let books = [];
+    if (authorId) {
+      const r = await fetch(`${API}/api/author_books?author_id=${encodeURIComponent(authorId)}`);
+      const data = await r.json();
+      if (data.code === 200) {
+        books = data.data || [];
+        // Update header with richer info from API
+        const meta = $('authorMeta');
+        if (meta) {
+          const parts = [];
+          if (data.author_book_num) parts.push(`<span class="meta-item"><i data-lucide="book-open" width="13" height="13"></i> ${data.author_book_num} 部作品</span>`);
+          if (data.author_fans) parts.push(`<span class="meta-item"><i data-lucide="users" width="13" height="13"></i> ${data.author_fans} 粉丝</span>`);
+          meta.innerHTML = parts.join(' · ') || '<span class="meta-item"><i data-lucide="book-open" width="13" height="13"></i> 暂无作品</span>';
+          refreshIcons(meta);
+        }
+        const avatar = app.querySelector('.author-avatar');
+        if (avatar && data.author_avatar) {
+          avatar.innerHTML = `<img src="${data.author_avatar}" onerror="this.parentElement.innerHTML='<i data-lucide=\\'user\\' width=\\'36\\' height=\\'36\\'></i>'">`;
+        }
+        const nameEl = app.querySelector('.author-name');
+        if (nameEl && data.author_name) nameEl.textContent = data.author_name;
+        if (data.author_desc) {
+          const info = app.querySelector('.author-info');
+          if (info) info.insertAdjacentHTML('beforeend', `<div class="author-desc">${escapeHtml(data.author_desc)}</div>`);
+        }
+      }
+    } else {
+      // Fallback: search by name
+      const r = await fetch(`${API}/api/search?key=${encodeURIComponent(displayName)}&tab_type=3`);
+      const data = await r.json();
+      books = (data.code === 200 ? (data.data || []) : []).filter(b => b.Author === displayName);
+      const meta = $('authorMeta');
+      if (meta) meta.innerHTML = `<span class="meta-item"><i data-lucide="book-open" width="13" height="13"></i> ${books.length ? books.length+' 部作品' : '暂无作品'}</span>`;
+      refreshIcons(meta);
+    }
+
+    const container = $('authorBooks');
+    if (!container) return;
+
+    if (!books.length) {
+      container.innerHTML = '<div class="shelf-empty"><div class="icon"><i data-lucide="book-open" width="48" height="48"></i></div><div>该作者暂无作品</div></div>';
+      refreshIcons(container);
+      return;
+    }
+
+    container.innerHTML = '<div class="book-list">' + books.map(book => {
+      const tags = (book.Tags||'').split(',').map(t=>t.trim()).filter(Boolean);
+      const status = book.Status||'';
+      const wc = book.WordCount ? (book.WordCount/10000).toFixed(1)+'万字' : '';
+      const score = parseFloat(book.Score);
+      const stars = score > 0 ? '<i data-lucide="star" width="12" height="12" style="vertical-align:-1px"></i>'+(score > 10 ? (score/10).toFixed(1) : score.toFixed(1)) : '';
+      const readText = book.ReadCountText || (book.ReadCount ? book.ReadCount+'人在读' : '');
+      return `<div class="book-card" onclick="navigate('detail?book_id=${book.BookID}')">
+        <img class="book-cover" src="${book.ThumbUrl||FALLBACK_IMG}" loading="lazy" onerror="this.src='${FALLBACK_IMG}'">
+        <div class="book-info">
+          <div class="book-title">${escapeHtml(book.Name||'')}${status?`<span class="status-badge ${status==='连载中'?'ongoing':'finished'}">${status}</span>`:''}</div>
+          ${book.ShortName?`<div class="book-short-name">又名：${escapeHtml(book.ShortName)}</div>`:''}
+          <div class="book-author">${[stars, readText].filter(Boolean).join(' · ')}</div>
+          <div class="book-desc">${escapeHtml(book.Desc||'')}</div>
+          <div class="book-meta">${[book.ChapterCount?book.ChapterCount+'章':'', wc, ...tags.map(t=>`<span class="tag-pill">${escapeHtml(t)}</span>`)].filter(Boolean).join(' · ')}</div>
+        </div></div>`;
+    }).join('') + '</div>';
+    refreshIcons(container);
+  } catch(e) {
+    const container = $('authorBooks');
+    if (container) container.innerHTML = '<div class="error view">加载失败</div>';
+  }
+}
 function filterChapters(q, bid) {
   const el = $('chapterList'); if (!el) return;
   const d = cache.detail[bid]; if (!d) return;
@@ -215,6 +361,31 @@ function onChapterSlider(val, bid) {
 }
 
 function doToggleShelf(bid) { const d = cache.detail[bid]; toggleShelf(bid, d.bookName, d.bookAuthor, d.bookThumb); renderDetail($('app'), bid); }
+
+function toggleDesc() {
+  const desc = $('bookDesc');
+  const btn = $('descToggle');
+  if (!desc || !btn) return;
+  const collapsed = desc.classList.toggle('collapsed');
+  btn.innerHTML = collapsed
+    ? '展开简介 <i data-lucide="chevron-down" width="12" height="12" style="vertical-align:-1px"></i>'
+    : '收起简介 <i data-lucide="chevron-up" width="12" height="12" style="vertical-align:-1px"></i>';
+  refreshIcons(btn);
+}
+
+async function fetchOriginalCover(authorId, bid) {
+  try {
+    const r = await fetch(`${API}/api/author_books?author_id=${encodeURIComponent(authorId)}`);
+    const data = await r.json();
+    if (data.code === 200 && Array.isArray(data.data)) {
+      const book = data.data.find(b => String(b.BookID) === String(bid));
+      if (book && book.ThumbUrl) {
+        const img = document.getElementById('originalCoverImg');
+        if (img) img.src = book.ThumbUrl;
+      }
+    }
+  } catch (e) {}
+}
 
 // ====== Render: Comments ======
 let commentPage = { offset: 0, hasMore: true };

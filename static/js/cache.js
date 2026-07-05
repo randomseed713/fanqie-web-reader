@@ -41,15 +41,16 @@ async function fetchDetail(bid) {
       const dd = await dr.json(), cd = await cr.json();
       const detail = dd.code===200 ? dd.data : null;
       const chapters = cd.code===200 ? (cd.data||[]) : [];
-      let bookName='', bookAuthor='', bookThumb='';
+      let bookName='', bookAuthor='', bookThumb='', authorId='';
       if (detail && detail.data) {
         bookName = detail.data.title || detail.data.book_name || '';
         bookAuthor = detail.data.author || detail.data.writer || '';
         bookThumb = detail.data.thumb_url || detail.data.audio_thumb_uri || '';
+        authorId = detail.data.author_id || detail.data.bind_author_ids || '';
       }
-      cache.detail[bid] = { detail, chapters, bookName, bookAuthor, bookThumb, comments: null };
+      cache.detail[bid] = { detail, chapters, bookName, bookAuthor, bookThumb, authorId, comments: null };
     } catch(e) {
-      cache.detail[bid] = { detail: null, chapters: [], bookName: '', bookAuthor: '', bookThumb: '', comments: null };
+      cache.detail[bid] = { detail: null, chapters: [], bookName: '', bookAuthor: '', bookThumb: '', authorId: '', comments: null };
     }
   })();
   inflight['d_'+bid] = p;

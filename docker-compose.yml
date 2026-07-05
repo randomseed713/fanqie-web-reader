@@ -4,16 +4,13 @@ services:
       context: .
       dockerfile: Dockerfile
     container_name: fanqie-web-reader
-    ports:
-      - "127.0.0.1:8199:8199"
+    network_mode: host
     environment:
       - PARA_COMMENT_MOCK=false
-      - UNIDBG_API=http://172.17.0.1:8099
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - UNIDBG_API=http://127.0.0.1:8099
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8199/', timeout=5)"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8199/', timeout=5)"]
       interval: 30s
       timeout: 10s
       retries: 3

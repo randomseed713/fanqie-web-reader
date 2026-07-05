@@ -498,14 +498,11 @@ function pgGoToPage(target, animate) {
     newPage.offsetHeight;
     
     if (mode === 'simulation') {
-      viewport.style.perspective = '1200px';
-      viewport.style.perspectiveOrigin = 'center center';
-      newPage.style.transition = 'transform 0.35s ease, box-shadow 0.3s ease';
-      newPage.style.transform = 'translateX(0) scale(0.97)';
-      newPage.style.boxShadow = dir === 1 ? '-4px 0 16px rgba(0,0,0,0.1)' : '4px 0 16px rgba(0,0,0,0.1)';
-      oldPage.style.transition = 'transform 0.4s ease, box-shadow 0.3s ease';
-      oldPage.style.transform = `translateX(${-dir * 65}%) rotateY(${dir * 12}deg) scale(0.94)`;
-      oldPage.style.boxShadow = dir === 1 ? '12px 0 32px rgba(0,0,0,0.22)' : '-12px 0 32px rgba(0,0,0,0.22)';
+      newPage.style.transition = 'transform 0.35s var(--ease-out)';
+      newPage.style.transform = 'translateX(0)';
+      oldPage.style.transition = 'transform 0.35s var(--ease-out), box-shadow 0.3s ease';
+      oldPage.style.transform = `translateX(${-dir * 100}%)`;
+      oldPage.style.boxShadow = dir === 1 ? '16px 0 32px -8px rgba(0,0,0,0.25)' : '-16px 0 32px -8px rgba(0,0,0,0.25)';
       setTimeout(() => {
         oldPage.style.display = 'none';
         oldPage.style.transform = '';
@@ -513,13 +510,9 @@ function pgGoToPage(target, animate) {
         oldPage.style.boxShadow = '';
         newPage.style.transform = '';
         newPage.style.transition = '';
-        newPage.style.boxShadow = '';
-        viewport.style.perspective = '';
-        viewport.style.perspectiveOrigin = '';
         pg.animating = false;
-      }, 420);
+      }, 370);
     } else {
-      // Standard slide animation
       newPage.style.transition = 'transform 0.3s ease';
       oldPage.style.transition = 'transform 0.3s ease';
       oldPage.style.transform = `translateX(${-dir * 100}%)`;
@@ -626,23 +619,18 @@ async function pgSwitchChapter(newIdx, startPageHint) {
       oldPageEl.offsetHeight; // force reflow
 
       if (mode === 'simulation') {
-        viewport.style.perspective = '1200px';
-        viewport.style.perspectiveOrigin = 'center center';
-        newPageEl.style.transition = 'transform 0.35s ease, box-shadow 0.3s ease';
-        newPageEl.style.transform = 'translateX(0) scale(0.97)';
-        newPageEl.style.boxShadow = dir === 1 ? '-4px 0 16px rgba(0,0,0,0.1)' : '4px 0 16px rgba(0,0,0,0.1)';
-        oldPageEl.style.transition = 'transform 0.4s ease, box-shadow 0.3s ease';
-        oldPageEl.style.transform = `translateX(${-dir * 65}%) rotateY(${dir * 12}deg) scale(0.94)`;
-        oldPageEl.style.boxShadow = dir === 1 ? '12px 0 32px rgba(0,0,0,0.22)' : '-12px 0 32px rgba(0,0,0,0.22)';
+        newPageEl.style.transition = 'transform 0.35s var(--ease-out)';
+        newPageEl.style.transform = 'translateX(0)';
+        oldPageEl.style.transition = 'transform 0.35s var(--ease-out), box-shadow 0.3s ease';
+        oldPageEl.style.transform = `translateX(${-dir * 100}%)`;
+        oldPageEl.style.boxShadow = dir === 1 ? '16px 0 32px -8px rgba(0,0,0,0.25)' : '-16px 0 32px -8px rgba(0,0,0,0.25)';
         setTimeout(() => {
           oldPageEl.remove();
           newPageEl.style.transform = '';
           newPageEl.style.transition = '';
           newPageEl.style.boxShadow = '';
-          viewport.style.perspective = '';
-          viewport.style.perspectiveOrigin = '';
           pg.animating = false;
-        }, 420);
+        }, 370);
       } else {
         newPageEl.style.transition = 'transform 0.3s ease';
         oldPageEl.style.transition = 'transform 0.3s ease';
@@ -756,11 +744,6 @@ function setupPgGestures() {
       }
     }
     if (pg.swipeActive && dragCurrentPage) {
-      const mode = getReadMode();
-      if (mode === 'simulation') {
-        viewport.style.perspective = '1200px';
-        viewport.style.perspectiveOrigin = 'center center';
-      }
       dragCurrentPage.style.transition = 'none';
       dragCurrentPage.style.transform = `translateX(${dx}px)`;
       // Move adjacent page to follow the drag
@@ -792,6 +775,12 @@ function setupPgGestures() {
     const mode = getReadMode();
     if (target !== pg.curPage) {
       if (mode === 'no-anim') {
+        if (viewport) {
+          const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
+          const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
+          if (prev) { prev.style.display = 'none'; prev.style.transform = ''; prev.style.transition = ''; }
+          if (next) { next.style.display = 'none'; next.style.transform = ''; next.style.transition = ''; }
+        }
         pgGoToPage(target, false);
         dragCurrentPage = null;
         return;
@@ -800,8 +789,8 @@ function setupPgGestures() {
       pg.animating = true;
       const targetEl = viewport ? viewport.querySelector(`.page-page[data-page="${target}"]`) : null;
       if (mode === 'simulation') {
-        if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.4s ease, box-shadow 0.3s ease'; dragCurrentPage.style.transform = `translateX(${-dir * 65}%) rotateY(${dir * 12}deg) scale(0.94)`; dragCurrentPage.style.boxShadow = dir === 1 ? '12px 0 32px rgba(0,0,0,0.22)' : '-12px 0 32px rgba(0,0,0,0.22)'; }
-        if (targetEl) { targetEl.style.transition = 'transform 0.35s ease, box-shadow 0.3s ease'; targetEl.style.transform = 'translateX(0) scale(0.97)'; targetEl.style.boxShadow = dir === 1 ? '-4px 0 16px rgba(0,0,0,0.1)' : '4px 0 16px rgba(0,0,0,0.1)'; }
+        if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.35s var(--ease-out), box-shadow 0.3s ease'; dragCurrentPage.style.transform = `translateX(${-dir * 100}%)`; dragCurrentPage.style.boxShadow = dir === 1 ? '16px 0 32px -8px rgba(0,0,0,0.25)' : '-16px 0 32px -8px rgba(0,0,0,0.25)'; }
+        if (targetEl) { targetEl.style.transition = 'transform 0.35s var(--ease-out)'; targetEl.style.transform = 'translateX(0)'; }
       } else {
         if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.3s ease'; dragCurrentPage.style.transform = `translateX(${-dir * 100}%)`; }
         if (targetEl) { targetEl.style.transition = 'transform 0.3s ease'; targetEl.style.transform = 'translateX(0)'; }
@@ -811,12 +800,10 @@ function setupPgGestures() {
       const otherIdx = pg.curPage + otherDir;
       const otherEl = viewport ? viewport.querySelector(`.page-page[data-page="${otherIdx}"]`) : null;
       if (otherEl) { otherEl.style.display = 'none'; otherEl.style.transition = ''; otherEl.style.transform = ''; }
-      const timeout = mode === 'simulation' ? 420 : 320;
+      const timeout = mode === 'simulation' ? 370 : 320;
       setTimeout(() => {
-        // Cleanup: hide old page, reset all styles
         if (dragCurrentPage && dragCurrentPage.parentNode) { dragCurrentPage.style.display = 'none'; dragCurrentPage.style.transition = ''; dragCurrentPage.style.transform = ''; dragCurrentPage.style.boxShadow = ''; }
-        if (targetEl) { targetEl.style.transition = ''; targetEl.style.transform = ''; targetEl.style.boxShadow = ''; }
-        if (mode === 'simulation' && viewport) { viewport.style.perspective = ''; viewport.style.perspectiveOrigin = ''; }
+        if (targetEl) { targetEl.style.transition = ''; targetEl.style.transform = ''; }
         pg.animating = false;
       }, timeout);
       pg.curPage = target;
@@ -843,7 +830,6 @@ function setupPgGestures() {
         if (prev) { prev.style.transition = `transform ${dur}s ease`; prev.style.transform = 'translateX(-100%)'; setTimeout(() => { prev.style.display = 'none'; prev.style.transition = ''; prev.style.transform = ''; }, timeout); }
         if (next) { next.style.transition = `transform ${dur}s ease`; next.style.transform = 'translateX(100%)'; setTimeout(() => { next.style.display = 'none'; next.style.transition = ''; next.style.transform = ''; }, timeout); }
       }
-      if (mode === 'simulation' && viewport) { viewport.style.perspective = ''; viewport.style.perspectiveOrigin = ''; }
     }
     dragCurrentPage = null;
   }, { passive: true });

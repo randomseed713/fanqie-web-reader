@@ -279,10 +279,10 @@ function renderPageReader(app, bid, idx) {
             <div class="settings-row">
               <span class="settings-label">背景</span>
               <div class="bg-swatches">
-                <button class="bg-swatch swatch-default${dt==='default'?' active':''}" onclick="togglePgTheme()"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
-                <button class="bg-swatch swatch-sepia${dt==='sepia'?' active':''}" onclick="togglePgTheme()"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
-                <button class="bg-swatch swatch-green${dt==='green'?' active':''}" onclick="togglePgTheme()"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
-                <button class="bg-swatch swatch-dark${dt==='dark'?' active':''}" onclick="togglePgTheme()"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
+                <button class="bg-swatch swatch-default${dt==='default'?' active':''}" onclick="applyTheme('default')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
+                <button class="bg-swatch swatch-sepia${dt==='sepia'?' active':''}" onclick="applyTheme('sepia')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
+                <button class="bg-swatch swatch-green${dt==='green'?' active':''}" onclick="applyTheme('green')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
+                <button class="bg-swatch swatch-dark${dt==='dark'?' active':''}" onclick="applyTheme('dark')"><div class="mini-lines"><div class="mini-line"></div><div class="mini-line"></div><div class="mini-line"></div></div></button>
               </div>
               <span class="settings-label" style="margin-left:auto">模式</span>
               <div class="settings-chips" style="flex:0">
@@ -489,13 +489,6 @@ function pgSliderGo(val) { pgGoToPage(parseInt(val) - 1, false); }
 function toggleToolbar() {
   const tb = $('pageToolbar');
   if (tb) tb.classList.toggle('open');
-}
-function togglePgTheme() {
-  toggleTheme();
-  const dt = getDisplayTheme();
-  const t = THEMES.find(x=>x.id===dt)||THEMES[0];
-  document.querySelectorAll('.page-header .icon-btn, .page-toolbar-top .icon-btn').forEach(b=>b.textContent=getTheme()==='auto'?'🔄':t.icon);
-  const tl=$('themeLabel'); if(tl) tl.textContent=getTheme()==='auto'?'自动':t.name;
 }
 function pgFontSize(d) { changeFontSize(d); setTimeout(()=>pgCalculatePages(),150); }
 function pgLineHeight(d) { changeLineHeight(d); setTimeout(()=>pgCalculatePages(),150); }

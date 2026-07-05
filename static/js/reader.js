@@ -679,11 +679,6 @@ function setupPgGestures() {
     const cw = container.clientWidth;
     const threshold = cw * 0.15;
     
-    if (dragCurrentPage) {
-      dragCurrentPage.style.transition = 'transform 0.3s ease';
-      dragCurrentPage.style.transform = '';
-    }
-    
     let target = pg.curPage;
     if (Math.abs(dx) > threshold) {
       if (dx < -threshold && pg.curPage < pg.totalPages - 1) target = pg.curPage + 1;
@@ -691,27 +686,35 @@ function setupPgGestures() {
     }
     
     const viewport = $('pageViewport');
+    const dir = target > pg.curPage ? 1 : -1;
+
     if (target !== pg.curPage) {
-      // Reset adjacent pages before pgGoToPage animates properly
-      if (viewport) {
-        const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
-        const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
-        if (prev) { prev.style.transform = ''; prev.style.transition = ''; }
-        if (next) { next.style.transform = ''; next.style.transition = ''; }
-      }
-      pgGoToPage(target, true);
+      // Animate current page and target page to their final positions from drag position
+      pg.animating = true;
+      const targetEl = viewport ? viewport.querySelector(`.page-page[data-page="${target}"]`) : null;
+      if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.3s ease'; dragCurrentPage.style.transform = `translateX(${-dir * 100}%)`; }
+      if (targetEl) { targetEl.style.transition = 'transform 0.3s ease'; targetEl.style.transform = 'translateX(0)'; }
+      // Hide the other adjacent page
+      const otherDir = -dir;
+      const otherIdx = pg.curPage + otherDir;
+      const otherEl = viewport ? viewport.querySelector(`.page-page[data-page="${otherIdx}"]`) : null;
+      if (otherEl) { otherEl.style.display = 'none'; otherEl.style.transition = ''; otherEl.style.transform = ''; }
+      setTimeout(() => {
+        // Cleanup: hide old page, reset all styles
+        if (dragCurrentPage && dragCurrentPage.parentNode) { dragCurrentPage.style.display = 'none'; dragCurrentPage.style.transition = ''; dragCurrentPage.style.transform = ''; }
+        if (targetEl) { targetEl.style.transition = ''; targetEl.style.transform = ''; }
+        pg.animating = false;
+      }, 320);
+      pg.curPage = target;
+      pgUpdateUI();
     } else {
-      // Cancelled drag — snap back and hide adjacent pages
+      // Cancelled drag — animate everything back
+      if (dragCurrentPage) { dragCurrentPage.style.transition = 'transform 0.3s ease'; dragCurrentPage.style.transform = 'translateX(0)'; }
       if (viewport) {
         const prev = viewport.querySelector(`.page-page[data-page="${pg.curPage - 1}"]`);
         const next = viewport.querySelector(`.page-page[data-page="${pg.curPage + 1}"]`);
         if (prev) { prev.style.transition = 'transform 0.3s ease'; prev.style.transform = 'translateX(-100%)'; setTimeout(() => { prev.style.display = 'none'; prev.style.transition = ''; prev.style.transform = ''; }, 300); }
         if (next) { next.style.transition = 'transform 0.3s ease'; next.style.transform = 'translateX(100%)'; setTimeout(() => { next.style.display = 'none'; next.style.transition = ''; next.style.transform = ''; }, 300); }
-      }
-      if (dragCurrentPage) {
-        setTimeout(() => {
-          if (dragCurrentPage) { dragCurrentPage.style.transition = ''; dragCurrentPage.style.transform = ''; }
-        }, 300);
       }
     }
     dragCurrentPage = null;

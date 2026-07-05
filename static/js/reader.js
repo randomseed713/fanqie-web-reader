@@ -395,11 +395,36 @@ function pgCalculatePages() {
   
   for (const ph of paraHtmls) {
     measurer.innerHTML = currentPage + ph;
-    // scrollHeight - padTotal = pure content height
-    if ((measurer.scrollHeight - padTotal) > maxH && currentPage !== '') {
-      pages.push(currentPage);
-      currentPage = ph;
-      measurer.innerHTML = ph;
+    if ((measurer.scrollHeight - padTotal) > maxH) {
+      // Adding ph overflows. Try to split ph's text to fill current page.
+      const pMatch = ph.match(/^(<div class="para-wrap"><p>)([\s\S]*?)(<\/p><\/div>)$/);
+      if (pMatch && pMatch[2].length > 1) {
+        // Binary search for max characters that fit on current page
+        const [prefix, text, suffix] = [pMatch[1], pMatch[2], pMatch[3]];
+        let lo = 0, hi = text.length, best = 0;
+        while (lo <= hi) {
+          const mid = Math.floor((lo + hi) / 2);
+          measurer.innerHTML = currentPage + prefix + text.substring(0, mid) + suffix;
+          if ((measurer.scrollHeight - padTotal) <= maxH) { best = mid; lo = mid + 1; }
+          else hi = mid - 1;
+        }
+        if (best > 0) {
+          currentPage += prefix + text.substring(0, best) + suffix;
+          pages.push(currentPage);
+          currentPage = prefix + text.substring(best) + suffix;
+          measurer.innerHTML = currentPage;
+        } else {
+          // Can't fit even one char — push whole paragraph to next page
+          if (currentPage) { pages.push(currentPage); }
+          currentPage = ph;
+          measurer.innerHTML = currentPage;
+        }
+      } else {
+        // Image or unsplittable element
+        if (currentPage) { pages.push(currentPage); }
+        currentPage = ph;
+        measurer.innerHTML = currentPage;
+      }
     } else {
       currentPage += ph;
     }

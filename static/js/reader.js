@@ -389,11 +389,7 @@ function pgCalculatePages() {
   // Fix: use scrollHeight of inner content by temporarily removing padding from comparison.
   const cs = getComputedStyle(measurer);
   const padTotal = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-  // Also account for the last paragraph's margin-bottom (0.8em ≈ 1 line) which
-  // gets included in scrollHeight but doesn't need to be fully visible on screen.
-  const fontSize = parseFloat(cs.fontSize) || 17;
-  const lastMargin = fontSize * 0.8; // p { margin-bottom: 0.8em }
-  const maxH = measurer.clientHeight - padTotal - lastMargin;
+  const maxH = measurer.clientHeight - padTotal;
   const pages = [];
   let currentPage = '';
   

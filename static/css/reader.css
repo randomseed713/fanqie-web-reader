@@ -149,6 +149,7 @@
   letter-spacing: 0.02em;
 }
 .page-page p { text-indent: 2em; margin-bottom: 0.8em; }
+.page-page p:last-child { margin-bottom: 0; }
 .page-page .para-wrap { position: relative; }
 .page-page .para-wrap .para-badge { display: none; }
 .page-page .author-speak {

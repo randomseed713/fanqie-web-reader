@@ -7,3 +7,4 @@ test_font_dl.woff2
 .playwright-cli/
 *.png
 unidbg/unidbg-boot-server.jar
+unidbg/

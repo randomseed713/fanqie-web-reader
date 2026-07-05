@@ -47,7 +47,7 @@ client: httpx.AsyncClient = httpx.AsyncClient(
 
 # Fanqie official API client for paragraph comments (used when unidbg is available)
 _fanqie_client: httpx.AsyncClient = httpx.AsyncClient(
-    timeout=15.0,
+    timeout=30.0,
     headers={
         "User-Agent": "com.dragon.read/6.5.3.32.3 (Android 9)",
         "Content-Type": "application/json",

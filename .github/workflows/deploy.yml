@@ -26,39 +26,51 @@ jobs:
             git reset --hard origin/main
             echo "Current commit: $(git rev-parse --short HEAD)"
             
-            # Free up disk space first (critical for 1C1G VPS)
-            echo "Cleaning Docker cache and old images..."
-            docker system prune -af --volumes 2>/dev/null || true
-            docker builder prune -af 2>/dev/null || true
-            df -h / | tail -1
+            # Free disk space aggressively (critical for 1C1G VPS)
+            echo "=== Disk before cleanup ==="
+            df -h /
+            docker compose down --remove-orphans 2>/dev/null || true
+            docker system prune -af --volumes
+            echo "=== Disk after cleanup ==="
+            df -h /
             
-            # Stop existing containers
-            docker compose down --remove-orphans
-            
-            # Build and start web reader first (always)
+            # Build and start web reader
             echo "Building web reader..."
             docker compose build --no-cache fanqie-web-reader
             docker compose up -d fanqie-web-reader
             
-            # Try to build and start unidbg (don't fail if it breaks)
-            # First download JAR on host (better network than docker build)
-            echo "Downloading unidbg JAR..."
+            # --- Setup unidbg directly on host (avoids Docker disk overhead) ---
+            UNIDBG_DIR=/opt/unidbg
+            UNIDBG_JAR="$UNIDBG_DIR/unidbg-boot-server.jar"
             JAR_URL="https://github.com/mtongle/fqnovel-unidbg/releases/download/v0.0.4/unidbg-boot-server-0.0.4.jar"
-            if curl -fsSL -o unidbg/unidbg-boot-server.jar "$JAR_URL" 2>&1; then
-              echo "JAR downloaded successfully ($(ls -lh unidbg/unidbg-boot-server.jar | awk '{print $5}'))"
-              echo "Building unidbg..."
-              if docker compose build --no-cache unidbg 2>&1; then
-                echo "Starting unidbg..."
-                docker compose up -d unidbg
-              else
-                echo "WARNING: unidbg Docker build failed"
-              fi
-            else
-              echo "WARNING: Failed to download unidbg JAR, paragraph comments will be unavailable"
-              rm -f unidbg/unidbg-boot-server.jar
+            
+            # Install JRE + required libs if not present
+            if ! command -v java &>/dev/null; then
+              echo "Installing OpenJDK 11 JRE..."
+              apt-get update -qq && apt-get install -y -qq openjdk-11-jre-headless curl libstdc++6
             fi
             
-            # Wait for services to start
+            # Download/refresh unidbg JAR
+            mkdir -p "$UNIDBG_DIR"
+            if [ ! -f "$UNIDBG_JAR" ]; then
+              echo "Downloading unidbg JAR..."
+              curl -fsSL -o "$UNIDBG_JAR" "$JAR_URL"
+            else
+              echo "unidbg JAR exists ($(ls -lh $UNIDBG_JAR | awk '{print $5}'))"
+            fi
+            
+            # Stop any existing unidbg process
+            pkill -f "unidbg-boot-server" 2>/dev/null || true
+            sleep 2
+            
+            # Start unidbg in background with memory limits
+            echo "Starting unidbg..."
+            cd "$UNIDBG_DIR"
+            nohup java -Xms64m -Xmx256m -XX:MaxMetaspaceSize=128m -XX:+UseSerialGC -jar "$UNIDBG_JAR" > "$UNIDBG_DIR/unidbg.log" 2>&1 &
+            echo "unidbg PID: $!"
+            disown
+            
+            # Wait for services to start (unidbg needs ~60s to initialize ARM emulation)
             echo "Waiting for services to start..."
             sleep 20
             
@@ -67,15 +79,14 @@ jobs:
             docker compose ps
             echo "--- Health check ---"
             curl -s -o /dev/null -w "Web reader HTTP %{http_code}\n" http://127.0.0.1:8199/ || echo "Web reader not ready"
-            for i in 1 2 3 4 5; do
+            for i in 1 2 3 4 5 6; do
               UNIDBG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "000")
               echo "Unidbg health (attempt $i): $UNIDBG_STATUS"
               if [ "$UNIDBG_STATUS" = "200" ]; then break; fi
               sleep 15
             done
             
-            # Clean up old images and temp JAR
-            rm -f unidbg/unidbg-boot-server.jar
+            # Clean up
             docker image prune -f
             
             echo "Deployment completed successfully!"

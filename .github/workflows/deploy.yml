@@ -29,16 +29,23 @@ jobs:
             # Stop existing containers
             docker compose down --remove-orphans
             
-            # Rebuild services (web reader from local, unidbg downloads pre-built JAR)
-            echo "Building services..."
-            docker compose build --no-cache
+            # Build and start web reader first (always)
+            echo "Building web reader..."
+            docker compose build --no-cache fanqie-web-reader
+            docker compose up -d fanqie-web-reader
             
-            # Start all services
-            docker compose up -d
+            # Try to build and start unidbg (don't fail if it breaks)
+            echo "Building unidbg..."
+            if docker compose build --no-cache unidbg 2>&1; then
+              echo "Starting unidbg..."
+              docker compose up -d unidbg
+            else
+              echo "WARNING: unidbg build failed, paragraph comments will be unavailable"
+            fi
             
-            # Wait for unidbg to initialize (ARM emulation takes time)
+            # Wait for services to start
             echo "Waiting for services to start..."
-            sleep 45
+            sleep 20
             
             # Verify deployment
             echo "--- Running containers ---"
@@ -49,7 +56,7 @@ jobs:
               UNIDBG_STATUS=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 http://127.0.0.1:8099/actuator/health 2>/dev/null || echo "000")
               echo "Unidbg health (attempt $i): $UNIDBG_STATUS"
               if [ "$UNIDBG_STATUS" = "200" ]; then break; fi
-              sleep 10
+              sleep 15
             done
             
             # Clean up old images

@@ -9,8 +9,6 @@ services:
     environment:
       - PARA_COMMENT_MOCK=false
       - UNIDBG_API=http://unidbg:8099
-    depends_on:
-      - unidbg
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8199/', timeout=5)"]

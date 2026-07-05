@@ -11,6 +11,24 @@
   to   { clip-path: circle(var(--reveal-r) at var(--reveal-x) var(--reveal-y)); }
 }
 
+/* ==================== Chapter list overlay ==================== */
+.chapter-list-overlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: var(--card-bg); max-width: 720px; margin: 0 auto;
+  display: flex; flex-direction: column;
+  animation: slideUp 0.25s var(--ease-out);
+}
+@keyframes slideUp { from { transform: translateY(30%); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+.chapter-list-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: var(--sp-4); font-size: var(--fs-md); font-weight: 700;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+}
+.chapter-list-scroll {
+  flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
 /* ==================== Scroll Reader ==================== */
 .scroll-reader { background: var(--reader-bg); min-height: 100vh; padding-bottom: calc(80px + env(safe-area-inset-bottom)); transition: background var(--dur); }
 .scroll-reader .reader-chapter-info { text-align: center; padding: var(--sp-8) var(--sp-6) var(--sp-6); }

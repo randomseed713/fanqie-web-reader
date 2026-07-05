@@ -82,7 +82,7 @@ function renderScrollReader(app, bid, idx) {
     <div class="auto-next-indicator hidden" id="autoNextIndicator">正在加载下一章...</div>
     <div class="reader-nav">
       <button ${prevIdx>=0?`onclick="navigate('reader?book_id=${bid}&chapter_idx=${prevIdx}')"`:'disabled'}><i data-lucide="chevron-left" width="16" height="16"></i> 上一章</button>
-      <button onclick="navigate('detail?book_id=${bid}')">目录</button>
+      <button onclick="showChapterList()">目录</button>
       <button class="btn-accent" ${nextIdx>=0?`onclick="navigate('reader?book_id=${bid}&chapter_idx=${nextIdx}')"`:'disabled'}>下一章 <i data-lucide="chevron-right" width="16" height="16"></i></button>
     </div>
   </div>
@@ -293,7 +293,7 @@ function renderPageReader(app, bid, idx) {
           <div class="sheet-divider"></div>
           <div class="nav-row">
             <button ${prevDisabled?'disabled':''} onclick="pgNavChapter(${idx-1})">上一章</button>
-            <button onclick="navigate('detail?book_id=${bid}')">目录</button>
+            <button onclick="showChapterList()">目录</button>
             <button ${nextDisabled?'disabled':''} onclick="pgNavChapter(${idx+1})">下一章</button>
           </div>
           <div class="slider-row">
@@ -484,6 +484,48 @@ function pgNavChapter(newIdx) {
   navigate(`reader?book_id=${pg.bid}&chapter_idx=${newIdx}`);
 }
 function pgSliderGo(val) { pgGoToPage(parseInt(val) - 1, false); }
+
+// ====== Chapter list panel ======
+function showChapterList() {
+  const bid = currentBookId || pg.bid;
+  const d = cache.detail[bid];
+  if (!d) return;
+  const chapters = d.chapters;
+  const resumeIdx = currentChapterIdx >= 0 ? currentChapterIdx : pg.idx;
+
+  // Remove existing panel if any
+  const old = $('chapterListOverlay');
+  if (old) { old.remove(); return; }
+
+  const panel = document.createElement('div');
+  panel.id = 'chapterListOverlay';
+  panel.className = 'chapter-list-overlay';
+  panel.innerHTML = `
+    <div class="chapter-list-header">
+      <span>目录 · ${chapters.length} 章</span>
+      <button class="icon-btn" onclick="closeChapterList()"><i data-lucide="x" width="16" height="16"></i></button>
+    </div>
+    <div class="chapter-list-scroll">${renderChapterItems(chapters, bid, resumeIdx)}</div>
+  `;
+  document.body.appendChild(panel);
+  refreshIcons(panel);
+
+  // Override chapter item clicks to close panel first
+  panel.querySelectorAll('.chapter-item').forEach(item => {
+    item.addEventListener('click', () => closeChapterList(), true);
+  });
+
+  // Scroll to current chapter
+  requestAnimationFrame(() => {
+    const cur = panel.querySelector('.chapter-item-current');
+    if (cur) cur.scrollIntoView({ block: 'center' });
+  });
+}
+
+function closeChapterList() {
+  const panel = $('chapterListOverlay');
+  if (panel) panel.remove();
+}
 
 // ====== Toolbar ======
 function toggleToolbar() {

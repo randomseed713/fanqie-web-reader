@@ -16,16 +16,17 @@ DEFAULT_HEADERS = {
         "(KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36"
     ),
 }
+INVALID_FILENAME_CHARS = r'[\\/:*?"<>|／＼：＊？＂＜＞｜\x00-\x1f]+'
 
 
 def safe_txt_filename(name: str) -> str:
-    cleaned = re.sub(r'[\\/:*?"<>|]+', "", name or "").strip()
+    cleaned = re.sub(INVALID_FILENAME_CHARS, "", name or "").strip()
     cleaned = re.sub(r"\s+", " ", cleaned)
     return f"{cleaned or 'book'}.txt"
 
 
 def safe_filename_stem(name: str) -> str:
-    cleaned = re.sub(r'[\\/:*?"<>|]+', "", name or "").strip()
+    cleaned = re.sub(INVALID_FILENAME_CHARS, "", name or "").strip()
     cleaned = re.sub(r"\s+", " ", cleaned)
     return cleaned or "book"
 
@@ -175,6 +176,7 @@ nav ol {
 
 
 def write_epub(output_path: Path, book_title: str, author: str, chapters: list[dict]) -> None:
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     files = build_epub_content(book_title, author, chapters)
     with zipfile.ZipFile(output_path, "w") as epub:
         epub.writestr(
@@ -399,6 +401,7 @@ async def download_book(args: argparse.Namespace) -> Path:
         else:
             txt = build_txt_content(book_title, author, downloaded_chapters)
             output_path = output_dir / safe_txt_filename(book_title)
+            output_path.parent.mkdir(parents=True, exist_ok=True)
             output_path.write_text(txt, encoding="utf-8")
 
         print(f"已保存: {output_path}")

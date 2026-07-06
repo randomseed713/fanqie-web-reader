@@ -1,6 +1,9 @@
 import argparse
 import asyncio
+import html
 import re
+import uuid
+import zipfile
 from pathlib import Path
 
 import httpx
@@ -19,6 +22,12 @@ def safe_txt_filename(name: str) -> str:
     cleaned = re.sub(r'[\\/:*?"<>|]+', "", name or "").strip()
     cleaned = re.sub(r"\s+", " ", cleaned)
     return f"{cleaned or 'book'}.txt"
+
+
+def safe_filename_stem(name: str) -> str:
+    cleaned = re.sub(r'[\\/:*?"<>|]+', "", name or "").strip()
+    cleaned = re.sub(r"\s+", " ", cleaned)
+    return cleaned or "book"
 
 
 def build_txt_content(book_title: str, author: str, chapters: list[dict]) -> str:
@@ -48,6 +57,133 @@ def build_txt_content(book_title: str, author: str, chapters: list[dict]) -> str
             lines.extend(["[本章下载失败]", ""])
 
     return "\n".join(lines).rstrip() + "\n"
+
+
+def xhtml_page(title: str, body: str) -> str:
+    return (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<!DOCTYPE html>\n'
+        '<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-CN">\n'
+        "<head>\n"
+        f"  <title>{html.escape(title)}</title>\n"
+        '  <link rel="stylesheet" type="text/css" href="style.css"/>\n'
+        "</head>\n"
+        f"<body>\n{body}\n</body>\n"
+        "</html>\n"
+    )
+
+
+def chapter_xhtml(chapter: dict, index: int) -> str:
+    title = chapter.get("title") or f"第{index}章"
+    parts = [f"<h1>{html.escape(title)}</h1>"]
+    paragraphs = chapter.get("paragraphs") or []
+    if paragraphs:
+        for paragraph in paragraphs:
+            text = str(paragraph).strip()
+            if text:
+                parts.append(f"<p>{html.escape(text)}</p>")
+    else:
+        parts.append("<p>[本章暂无正文]</p>")
+    author_speak = str(chapter.get("author_speak") or "").strip()
+    if author_speak:
+        parts.append(f'<p class="author-speak">作者说：{html.escape(author_speak)}</p>')
+    if chapter.get("failed"):
+        parts.append('<p class="failed">[本章下载失败]</p>')
+    return xhtml_page(title, "\n".join(parts))
+
+
+def build_epub_content(book_title: str, author: str, chapters: list[dict]) -> dict[str, bytes | str]:
+    book_uuid = str(uuid.uuid5(uuid.NAMESPACE_URL, f"fanqie:{book_title}:{author}"))
+    escaped_title = html.escape(book_title or "未知书名")
+    escaped_author = html.escape(author or "未知作者")
+    css = """
+body {
+  font-family: "Noto Serif CJK SC", "Songti SC", "SimSun", serif;
+  line-height: 1.9;
+  margin: 0 6%;
+}
+h1 {
+  font-size: 1.4em;
+  margin: 1.2em 0 1em;
+  text-align: center;
+}
+p {
+  margin: 0.85em 0;
+  text-indent: 2em;
+}
+.author-speak, .failed {
+  color: #666;
+  font-style: italic;
+}
+nav ol {
+  line-height: 1.8;
+}
+""".strip()
+    manifest_items = [
+        '<item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>',
+        '<item id="style" href="style.css" media-type="text/css"/>',
+    ]
+    spine_items = []
+    nav_items = []
+    files: dict[str, bytes | str] = {
+        "mimetype": "application/epub+zip",
+        "META-INF/container.xml": (
+            '<?xml version="1.0" encoding="UTF-8"?>\n'
+            '<container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">\n'
+            '  <rootfiles><rootfile full-path="EPUB/package.opf" '
+            'media-type="application/oebps-package+xml"/></rootfiles>\n'
+            "</container>\n"
+        ),
+        "EPUB/style.css": css,
+    }
+
+    for index, chapter in enumerate(chapters, 1):
+        chapter_id = f"chapter-{index}"
+        href = f"chapter-{index}.xhtml"
+        title = chapter.get("title") or f"第{index}章"
+        manifest_items.append(
+            f'<item id="{chapter_id}" href="{href}" media-type="application/xhtml+xml"/>'
+        )
+        spine_items.append(f'<itemref idref="{chapter_id}"/>')
+        nav_items.append(f'<li><a href="{href}">{html.escape(title)}</a></li>')
+        files[f"EPUB/{href}"] = chapter_xhtml(chapter, index)
+
+    files["EPUB/nav.xhtml"] = xhtml_page(
+        "目录",
+        (
+            f"<h1>{escaped_title}</h1>\n"
+            '<nav epub:type="toc" id="toc" xmlns:epub="http://www.idpf.org/2007/ops">\n'
+            "<h2>目录</h2>\n"
+            f"<ol>{''.join(nav_items)}</ol>\n"
+            "</nav>"
+        ),
+    )
+    files["EPUB/package.opf"] = (
+        '<?xml version="1.0" encoding="utf-8"?>\n'
+        '<package xmlns="http://www.idpf.org/2007/opf" unique-identifier="bookid" version="3.0">\n'
+        "  <metadata xmlns:dc=\"http://purl.org/dc/elements/1.1/\">\n"
+        f'    <dc:identifier id="bookid">urn:uuid:{book_uuid}</dc:identifier>\n'
+        f"    <dc:title>{escaped_title}</dc:title>\n"
+        f"    <dc:creator>{escaped_author}</dc:creator>\n"
+        '    <dc:language>zh-CN</dc:language>\n'
+        "  </metadata>\n"
+        f"  <manifest>{''.join(manifest_items)}</manifest>\n"
+        f"  <spine>{''.join(spine_items)}</spine>\n"
+        "</package>\n"
+    )
+    return files
+
+
+def write_epub(output_path: Path, book_title: str, author: str, chapters: list[dict]) -> None:
+    files = build_epub_content(book_title, author, chapters)
+    with zipfile.ZipFile(output_path, "w") as epub:
+        epub.writestr(
+            zipfile.ZipInfo("mimetype"),
+            files.pop("mimetype"),
+            compress_type=zipfile.ZIP_STORED,
+        )
+        for name, content in files.items():
+            epub.writestr(name, content, compress_type=zipfile.ZIP_DEFLATED)
 
 
 def parse_content_html(content_html: str) -> list[str]:
@@ -214,29 +350,34 @@ async def download_book(args: argparse.Namespace) -> Path:
         if not chapters:
             raise RuntimeError("未获取到章节目录")
 
-        downloaded = []
+        concurrency = max(1, args.concurrency)
+        semaphore = asyncio.Semaphore(concurrency)
+        downloaded = [None] * len(chapters)
         failed = []
         total = len(chapters)
-        for index, chapter in enumerate(chapters, 1):
+
+        async def download_one(index: int, chapter: dict) -> None:
             title = chapter.get("title") or f"第{index}章"
-            print(f"[{index}/{total}] {title}", flush=True)
+            print(f"[{index}/{total}] 开始 {title}", flush=True)
             try:
-                content = await fetch_chapter_content(
-                    client,
-                    args.api_base,
-                    chapter["id"],
-                    args.retries,
-                )
-                downloaded.append(
+                async with semaphore:
+                    content = await fetch_chapter_content(
+                        client,
+                        args.api_base,
+                        chapter["id"],
+                        args.retries,
+                    )
+                downloaded[index - 1] = (
                     {
                         "title": content.get("title") or title,
                         "paragraphs": content.get("paragraphs") or [],
                         "author_speak": content.get("author_speak") or "",
                     }
                 )
+                print(f"[{index}/{total}] 完成 {title}", flush=True)
             except Exception as exc:
                 failed.append((index, title, str(exc)))
-                downloaded.append(
+                downloaded[index - 1] = (
                     {
                         "title": title,
                         "paragraphs": [],
@@ -244,10 +385,21 @@ async def download_book(args: argparse.Namespace) -> Path:
                         "failed": True,
                     }
                 )
+                print(f"[{index}/{total}] 失败 {title}: {exc}", flush=True)
 
-        txt = build_txt_content(book_title, author, downloaded)
-        output_path = output_dir / safe_txt_filename(book_title)
-        output_path.write_text(txt, encoding="utf-8")
+        print(f"开始下载 {total} 章，并发数 {concurrency}", flush=True)
+        await asyncio.gather(
+            *(download_one(index, chapter) for index, chapter in enumerate(chapters, 1))
+        )
+
+        downloaded_chapters = [chapter for chapter in downloaded if chapter]
+        if args.format == "epub":
+            output_path = output_dir / f"{safe_filename_stem(book_title)}.epub"
+            write_epub(output_path, book_title, author, downloaded_chapters)
+        else:
+            txt = build_txt_content(book_title, author, downloaded_chapters)
+            output_path = output_dir / safe_txt_filename(book_title)
+            output_path.write_text(txt, encoding="utf-8")
 
         print(f"已保存: {output_path}")
         if failed:
@@ -258,7 +410,7 @@ async def download_book(args: argparse.Namespace) -> Path:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="下载番茄小说全文并保存为 txt")
+    parser = argparse.ArgumentParser(description="下载番茄小说全文并保存为 txt 或 epub")
     parser.add_argument("book_id", help="书籍 ID")
     parser.add_argument(
         "-o",
@@ -288,6 +440,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="只下载前 N 章，调试用；默认 0 表示全部",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=10,
+        help="并发下载章节数，默认 10",
+    )
+    parser.add_argument(
+        "--format",
+        choices=("txt", "epub"),
+        default="txt",
+        help="输出格式，默认 txt",
     )
     return parser
 

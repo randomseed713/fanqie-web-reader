@@ -1,0 +1,70 @@
+name: Download Novel Book
+
+on:
+  workflow_dispatch:
+    inputs:
+      book_id:
+        description: "Fanqie book ID"
+        required: true
+        type: string
+      limit:
+        description: "Only download first N chapters, 0 means all"
+        required: false
+        default: "0"
+        type: string
+      concurrency:
+        description: "Concurrent chapter downloads"
+        required: false
+        default: "10"
+        type: string
+      format:
+        description: "Output format: txt or epub"
+        required: false
+        default: "epub"
+        type: choice
+        options:
+          - epub
+          - txt
+      api_base:
+        description: "Upstream API base URL"
+        required: false
+        default: "http://101.35.133.34:5000"
+        type: string
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download TXT
+        run: |
+          mkdir -p downloads
+          python -m tools.download_txt "${{ inputs.book_id }}" \
+            --output downloads \
+            --api-base "${{ inputs.api_base }}" \
+            --limit "${{ inputs.limit }}" \
+            --concurrency "${{ inputs.concurrency }}" \
+            --format "${{ inputs.format }}"
+
+      - name: Upload book artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: novel-${{ inputs.format }}-${{ inputs.book_id }}
+          path: |
+            downloads/*.txt
+            downloads/*.epub
+          if-no-files-found: error
+          retention-days: 30
